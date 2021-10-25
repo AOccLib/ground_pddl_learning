@@ -44,3 +44,10 @@ The **learned_models** folder contains a file for each domain (sort of pretty-pr
 ```
 ### Feature definitions
 The ``features.lp`` file defines the members of the feature pool (concepts and roles from description logic) via clingo rules.
+
+### Running a single experiment
+To run a single experiment for one of the domains, run ``learn.lp`` together with the files in the **graphs** folder for that domain. For example, for Blocks:
+
+```bash
+clingo learn.lp ./graphs/blocks/object_types.lp ./graphs/blocks/1block.lp ./graphs/blocks/1block_caused.lp ./graphs/blocks/3block.lp ./graphs/blocks/3block_caused.lp
+```
