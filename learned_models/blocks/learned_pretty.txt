@@ -1,0 +1,105 @@
+ARITIES: ['a_arity(pickup,2)', 'a_arity(putdown,2)', 'a_arity(stack,3)', 'a_arity(unstack,3)']
+PREDICATES: ['robot', 'block', 'table', 'subset_robot_er_overlap_verum', 'er_overlap_robot', 'inter_block_er_below_block', 'inv_below']
+ACTION NAMES: ['pickup', 'putdown', 'stack', 'unstack']
+
+GROUND ACTIONS: ['next(1,pickup,(c,t),0,1)', 'next(1,pickup,(a,t),0,2)', 'next(1,pickup,(b,t),0,3)', 'next(1,pickup,(b,t),4,10)', 'next(1,pickup,(a,t),5,11)', 'next(1,pickup,(b,t),6,12)', 'next(1,pickup,(c,t),7,13)', 'next(1,pickup,(a,t),8,14)', 'next(1,pickup,(c,t),9,15)', 'next(0,pickup,(a,t),0,1)', 'next(1,putdown,(c,t),1,0)', 'next(1,putdown,(a,t),2,0)', 'next(1,putdown,(b,t),3,0)', 'next(1,putdown,(b,t),10,4)', 'next(1,putdown,(a,t),11,5)', 'next(1,putdown,(b,t),12,6)', 'next(1,putdown,(c,t),13,7)', 'next(1,putdown,(a,t),14,8)', 'next(1,putdown,(c,t),15,9)', 'next(0,putdown,(a,t),1,0)', 'next(1,stack,(c,a,b),1,4)', 'next(1,stack,(c,b,a),1,5)', 'next(1,stack,(a,c,b),2,6)', 'next(1,stack,(a,b,c),2,7)', 'next(1,stack,(b,c,a),3,8)', 'next(1,stack,(b,a,c),3,9)', 'next(1,stack,(b,c,t),10,16)', 'next(1,stack,(a,c,t),11,17)', 'next(1,stack,(b,a,t),12,18)', 'next(1,stack,(c,a,t),13,19)', 'next(1,stack,(a,b,t),14,20)', 'next(1,stack,(c,b,t),15,21)', 'next(1,unstack,(b,a,c),4,1)', 'next(1,unstack,(a,b,c),5,1)', 'next(1,unstack,(b,c,a),6,2)', 'next(1,unstack,(c,b,a),7,2)', 'next(1,unstack,(a,c,b),8,3)', 'next(1,unstack,(c,a,b),9,3)', 'next(1,unstack,(t,c,b),16,10)', 'next(1,unstack,(t,c,a),17,11)', 'next(1,unstack,(t,a,b),18,12)', 'next(1,unstack,(t,a,c),19,13)', 'next(1,unstack,(t,b,a),20,14)', 'next(1,unstack,(t,b,c),21,15)']
+PICKUP:
+       PRECONDITIONS: 
+             (subset_robot_er_overlap_verum,(0,)),0)
+             (table,(1,)),0)
+             (robot,(1,)),0)
+             (er_overlap_robot,(1,)),0)
+             (inter_block_er_below_block,(1,)),0)
+             (block,(2,)),0)
+             (robot,(2,)),0)
+             (er_overlap_robot,(2,)),0)
+             (inter_block_er_below_block,(2,)),0)
+             (inv_below,(2,1)),0)
+             (block,(1,)),1)
+             (table,(2,)),1)
+             (inv_below,(1,2)),1)
+       EFFECTS: 
+             (inv_below,(1,2)),0)
+             (subset_robot_er_overlap_verum,(0,)),1)
+             (er_overlap_robot,(1,)),1)
+
+
+PUTDOWN:
+       PRECONDITIONS: 
+             (table,(1,)),0)
+             (robot,(1,)),0)
+             (inter_block_er_below_block,(1,)),0)
+             (block,(2,)),0)
+             (robot,(2,)),0)
+             (er_overlap_robot,(2,)),0)
+             (inter_block_er_below_block,(2,)),0)
+             (inv_below,(1,2)),0)
+             (inv_below,(2,1)),0)
+             (subset_robot_er_overlap_verum,(0,)),1)
+             (block,(1,)),1)
+             (er_overlap_robot,(1,)),1)
+             (table,(2,)),1)
+       EFFECTS: 
+             (inv_below,(1,2)),1)
+             (subset_robot_er_overlap_verum,(0,)),0)
+             (er_overlap_robot,(1,)),0)
+
+
+STACK:
+       PRECONDITIONS: 
+             (table,(1,)),0)
+             (robot,(1,)),0)
+             (inter_block_er_below_block,(1,)),0)
+             (table,(2,)),0)
+             (robot,(2,)),0)
+             (er_overlap_robot,(2,)),0)
+             (inter_block_er_below_block,(2,)),0)
+             (robot,(3,)),0)
+             (er_overlap_robot,(3,)),0)
+             (inter_block_er_below_block,(3,)),0)
+             (inv_below,(1,2)),0)
+             (inv_below,(1,3)),0)
+             (inv_below,(2,1)),0)
+             (inv_below,(2,3)),0)
+             (inv_below,(3,1)),0)
+             (inv_below,(3,2)),0)
+             (subset_robot_er_overlap_verum,(0,)),1)
+             (block,(1,)),1)
+             (er_overlap_robot,(1,)),1)
+             (block,(2,)),1)
+       EFFECTS: 
+             (inv_below,(1,2)),1)
+             (subset_robot_er_overlap_verum,(0,)),0)
+             (er_overlap_robot,(1,)),0)
+             (inter_block_er_below_block,(2,)),1)
+
+
+UNSTACK:
+       PRECONDITIONS: 
+             (subset_robot_er_overlap_verum,(0,)),0)
+             (robot,(1,)),0)
+             (er_overlap_robot,(1,)),0)
+             (inter_block_er_below_block,(1,)),0)
+             (table,(2,)),0)
+             (robot,(2,)),0)
+             (er_overlap_robot,(2,)),0)
+             (table,(3,)),0)
+             (robot,(3,)),0)
+             (er_overlap_robot,(3,)),0)
+             (inter_block_er_below_block,(3,)),0)
+             (inv_below,(1,2)),0)
+             (inv_below,(1,3)),0)
+             (inv_below,(2,1)),0)
+             (inv_below,(2,3)),0)
+             (inv_below,(3,1)),0)
+             (block,(2,)),1)
+             (inter_block_er_below_block,(2,)),1)
+             (block,(3,)),1)
+             (inv_below,(3,2)),1)
+       EFFECTS: 
+             (inv_below,(3,2)),0)
+             (subset_robot_er_overlap_verum,(0,)),1)
+             (er_overlap_robot,(3,)),1)
+             (inter_block_er_below_block,(2,)),0)
+
+

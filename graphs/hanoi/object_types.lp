@@ -1,0 +1,3 @@
+pred(peg).
+pred(disk).
+
