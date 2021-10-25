@@ -1,0 +1,16 @@
+(define (problem 3tile)
+  (:domain strips-sliding-tile)
+  (:objects t1 t2 t3 x11 x12 x21 x22)
+  (:init
+   (tile t1) (tile t2) (tile t3)
+   (position x11) (position x12)
+   (position x21) (position x22)
+   (blank x11) (at t1 x12) (at t2 x21) (at t3 x22)
+   (below x21 x11)
+   (below x22 x12)
+   (left x11 x12)
+   (left x21 x22)
+   )
+  (:goal
+   (and (at t1 x21) (at t2 x21) (at t3 x22)))
+  )
