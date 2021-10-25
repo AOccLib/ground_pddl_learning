@@ -43,7 +43,7 @@ The **learned_models** folder contains a file for each domain (sort of pretty-pr
 5. Learned action schemas
 ```
 ### Feature definitions
-The ``features.lp`` file defines the members of the feature pool (concepts and roles from description logic) via clingo rules.
+The ``features.lp`` file defines the members of the feature pool (concepts and roles from description logic) via clingo rules. (Subset definitions not included, these were computed elsewhere).
 
 ### Running a single experiment
 To run a single experiment for one of the domains, run ``learn.lp`` together with the files in the **graphs** folder for that domain. For example, for Blocks:
