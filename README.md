@@ -49,5 +49,5 @@ The ``features.lp`` file defines the members of the feature pool (concepts and r
 To run a single experiment for one of the domains, run ``learn.lp`` together with the files in the **graphs** folder for that domain. For example, for Blocks:
 
 ```bash
-clingo learn.lp ./graphs/blocks/object_types.lp ./graphs/blocks/1block.lp ./graphs/blocks/1block_caused.lp ./graphs/blocks/3block.lp ./graphs/blocks/3block_caused.lp
+clingo learn.lp ./graphs/blocks/1block.lp ./graphs/blocks/1block_caused.lp ./graphs/blocks/3block.lp ./graphs/blocks/3block_caused.lp
 ```
