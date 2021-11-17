@@ -2,7 +2,7 @@
 ;;; 4 Op-blocks world
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define (domain BLOCKS)
+(define (domain blocksworld)
   (:requirements :strips :typing)
   (:types block)
   (:predicates (on ?x - block ?y - block)
