@@ -1,4 +1,4 @@
-# 4-op Blocksworld domain file and instances.
+### Blocksworld (4-op)
 
 Instaces are parametrized by:
 n = number of blocks
