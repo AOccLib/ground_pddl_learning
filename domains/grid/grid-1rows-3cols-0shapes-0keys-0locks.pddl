@@ -10,10 +10,8 @@
        (open pos0_0)
        (open pos0_1)
        (open pos0_2)
-       (at_robot pos0_1)
-       (conn pos0_0 pos0_1)
-       (conn pos0_1 pos0_2)
-       (conn pos0_1 pos0_0)
-       (conn pos0_2 pos0_1)
-    (:goal (and
        (at_robot pos0_0)
+       (left pos0_1 pos0_0)
+       (left pos0_2 pos0_1)
+    (:goal (and
+       (at_robot pos0_1)
