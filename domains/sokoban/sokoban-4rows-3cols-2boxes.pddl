@@ -3,6 +3,7 @@
     (:objects
     pos0_0 pos0_1 pos0_2 pos1_0 pos1_1 pos1_2 pos2_0 pos2_1 pos2_2 pos3_0 pos3_1 pos3_2
     box0 box1
+    )
     (:init
        (arm_empty)
        (location pos0_0)
@@ -18,16 +19,16 @@
        (location pos3_1)
        (location pos3_2)
        (clear pos0_1)
-       (clear pos0_2)
        (clear pos1_0)
        (clear pos1_1)
+       (clear pos1_2)
        (clear pos2_0)
        (clear pos2_1)
        (clear pos2_2)
        (clear pos3_0)
        (clear pos3_1)
        (clear pos3_2)
-       (at_robot pos3_2)
+       (at pos3_2)
        (box box0)
        (box box1)
        (left pos0_1 pos0_0)
@@ -47,7 +48,9 @@
        (below pos3_0 pos2_0)
        (below pos3_1 pos2_1)
        (below pos3_2 pos2_2)
-       (at box0 pos0_0)
-       (at box1 pos1_2)
+       (at box0 pos0_2)
+       (at box1 pos0_0)
+    )
     (:goal (and
-       (at_robot pos3_2)
+       (at pos3_2)
+    )))

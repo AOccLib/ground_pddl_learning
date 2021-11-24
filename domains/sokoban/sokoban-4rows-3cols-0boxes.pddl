@@ -2,6 +2,7 @@
     (:domain sokoban-untyped)
     (:objects
     pos0_0 pos0_1 pos0_2 pos1_0 pos1_1 pos1_2 pos2_0 pos2_1 pos2_2 pos3_0 pos3_1 pos3_2
+    )
     (:init
        (arm_empty)
        (location pos0_0)
@@ -28,7 +29,7 @@
        (clear pos3_0)
        (clear pos3_1)
        (clear pos3_2)
-       (at_robot pos1_2)
+       (at pos0_1)
        (left pos0_1 pos0_0)
        (left pos0_2 pos0_1)
        (left pos1_1 pos1_0)
@@ -46,5 +47,7 @@
        (below pos3_0 pos2_0)
        (below pos3_1 pos2_1)
        (below pos3_2 pos2_2)
+    )
     (:goal (and
-       (at_robot pos1_2)
+       (at pos0_1)
+    )))

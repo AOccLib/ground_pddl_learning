@@ -2,6 +2,7 @@
     (:domain grid)
     (:objects
     pos0_0 pos0_1 pos1_0 pos1_1 pos2_0 pos2_1 pos3_0 pos3_1
+    )
     (:init
        (arm_empty)
        (place pos0_0)
@@ -31,5 +32,7 @@
        (left pos1_1 pos1_0)
        (left pos2_1 pos2_0)
        (left pos3_1 pos3_0)
+    )
     (:goal (and
        (at_robot pos1_0)
+    )))

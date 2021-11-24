@@ -2,6 +2,7 @@
     (:domain grid)
     (:objects
     pos0_0 pos0_1 pos0_2 pos0_3 pos1_0 pos1_1 pos1_2 pos1_3 pos2_0 pos2_1 pos2_2 pos2_3
+    )
     (:init
        (arm_empty)
        (place pos0_0)
@@ -28,7 +29,7 @@
        (open pos2_1)
        (open pos2_2)
        (open pos2_3)
-       (at_robot pos0_0)
+       (at_robot pos1_2)
        (below pos1_0 pos0_0)
        (below pos1_1 pos0_1)
        (below pos1_2 pos0_2)
@@ -46,5 +47,7 @@
        (left pos2_1 pos2_0)
        (left pos2_2 pos2_1)
        (left pos2_3 pos2_2)
+    )
     (:goal (and
-       (at_robot pos0_1)
+       (at_robot pos1_3)
+    )))

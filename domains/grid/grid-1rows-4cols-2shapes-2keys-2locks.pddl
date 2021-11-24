@@ -4,6 +4,7 @@
     pos0_0 pos0_1 pos0_2 pos0_3
     shape0 shape1
     key0 key1
+    )
     (:init
        (arm_empty)
        (place pos0_0)
@@ -26,8 +27,10 @@
        (lock_shape  pos0_3 shape1)
        (key_shape  key0 shape0)
        (key_shape  key1 shape1)
-       (at key0 pos0_1)
-       (at key1 pos0_2)
+       (at key0 pos0_2)
+       (at key1 pos0_0)
+    )
     (:goal (and
-       (at key0 pos0_3)
+       (at key0 pos0_1)
        (at key1 pos0_1)
+    )))

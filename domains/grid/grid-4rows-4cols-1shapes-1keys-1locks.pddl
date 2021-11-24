@@ -4,6 +4,7 @@
     pos0_0 pos0_1 pos0_2 pos0_3 pos1_0 pos1_1 pos1_2 pos1_3 pos2_0 pos2_1 pos2_2 pos2_3 pos3_0 pos3_1 pos3_2 pos3_3
     shape0
     key0
+    )
     (:init
        (arm_empty)
        (place pos0_0)
@@ -36,8 +37,8 @@
        (open pos2_3)
        (open pos3_0)
        (open pos3_1)
-       (open pos3_2)
-       (at_robot pos1_3)
+       (open pos3_3)
+       (at_robot pos3_3)
        (objshape shape0)
        (key key0)
        (below pos1_0 pos0_0)
@@ -64,9 +65,11 @@
        (left pos3_1 pos3_0)
        (left pos3_2 pos3_1)
        (left pos3_3 pos3_2)
-       (locked pos3_3)
-       (lock_shape  pos3_3 shape0)
+       (locked pos3_2)
+       (lock_shape  pos3_2 shape0)
        (key_shape  key0 shape0)
-       (at key0 pos2_1)
+       (at key0 pos1_1)
+    )
     (:goal (and
-       (at key0 pos0_1)
+       (at key0 pos3_3)
+    )))
