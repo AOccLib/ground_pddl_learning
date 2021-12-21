@@ -682,7 +682,8 @@ if __name__ == '__main__':
     solver = Path(args.solver)
     domain = Path(args.domain)
     solver_name = solver.stem
-    solve_path = (domain if not args.results else Path(args.results[0]) / domain.name) / f'solve_{solver_name}'
+    solve_folder = f'{solver_name}_a={args.max_action_arity}_p={args.max_num_predicates}'
+    solve_path = (domain if not args.results else Path(args.results[0]) / domain.name) / solve_folder
     best_model_filename = solve_path / f'best_{domain.name}_{solver.name}'
 
     # create/clean solve_path
