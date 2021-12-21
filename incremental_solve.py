@@ -1,0 +1,718 @@
+from distutils.util import strtobool
+import argparse, re, shutil, itertools
+from sys import stdin, stdout
+from timeit import default_timer as timer
+from tqdm import tqdm
+from pathlib import Path
+from subprocess import Popen, PIPE
+from termcolor import colored
+from typing import List
+from random import shuffle
+import logging
+
+class SolveArgs(object):
+    pass
+
+def get_logger(name : str, log_file : Path, level = logging.INFO):
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+
+    # add stdout handler
+    console = logging.StreamHandler(stdout)
+    formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s')
+    console.setFormatter(formatter)
+    logger.addHandler(console)
+
+    # add file handler
+    file_handler = logging.FileHandler(str(log_file), 'a')
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+
+    return logger
+
+def get_aws_instance(fname : Path) -> None:
+    with fname.open('w') as fd:
+        fd.write('Instance-Type: ')
+        fd.flush()
+        p = Popen('curl -s http://169.254.169.254/latest/meta-data/instance-type', stdout=fd, shell=True, bufsize=1, universal_newlines=True)
+        p.wait()
+        fd.write('\n\nCPU Info:\n')
+        fd.flush()
+        p = Popen('cat /proc/cpuinfo', stdout=fd, shell=True, bufsize=1, universal_newlines=True)
+        p.wait()
+        fd.write('Mem Info:\n')
+        fd.flush()
+        p = Popen('cat /proc/meminfo', stdout=fd, shell=True, bufsize=1, universal_newlines=True)
+        p.wait()
+        fd.write('\n')
+        fd.flush()
+
+def get_lp_files(path : Path, exclude_regexes : List[str] = []) -> List[str]:
+    files = [ fname for fname in path.iterdir() if fname.is_file() and fname.name[-3:] == '.lp' ]
+    if exclude_regexes:
+        raw_regex = '(%s)' % '|'.join(exclude_regexes)
+        regex = re.compile(raw_regex)
+        files = [ fname for fname in files if not re.match(regex, fname.name) ]
+    return sorted(files)
+
+def size_lp_file(fname : Path) -> int:
+    size = 0
+    with fname.open('r') as fd:
+        for line in fd:
+            if line[:5] == 'node(':
+                size += 1
+    return size
+
+def sort_lp_files_by_size(files : List[Path]) -> List[Path]:
+    files_with_size = [ (size_lp_file(fname), fname) for fname in files ]
+    files_with_size.sort(key=lambda pair: pair[0])
+    return [ fname for _, fname in files_with_size ]
+
+def solve(solver : Path, domain : Path, best_model_filename : Path, solve_args : SolveArgs):
+    # start clock
+    start_time = timer()
+
+    # setup basic variables
+    task_name = domain.name
+    train_path = domain / 'train'
+    test_path = domain / 'test'
+    solve_path = solve_args.solve_path
+    logger.info(f'solve: solver={solver}, task={task_name}, train_path={train_path}, best_model_filename={best_model_filename}')
+
+    # calculate model using solve set
+    iterations = 0
+    added_states = []
+    added_files = []
+    calculate_model = True
+    written_to_partial = []
+    solver_times_raw = []
+    solver_wall_times = []
+    solver_ground_times = []
+    solver_cpu_times = []
+    verify_times_batches = []
+
+    # setup solver command
+    max_action_arity = solve_args.max_action_arity
+    max_num_predicates = solve_args.max_num_predicates
+    solver_cmd = f'clingo -c max_action_arity={max_action_arity} -c num_predicates={max_num_predicates} --fast-exit -t 6 --sat-prepro=2 --time-limit={solve_args.max_time} --stats=0 {solver} {solve_path}/*.lp | python3 get_best_model.py {best_model_filename}'
+
+    while calculate_model:
+        iterations += 1
+
+        if not solve_args.verify_only:
+            files = sorted(get_lp_files(solve_path, [ '.*_caused.lp' ]))
+            logger.info(f'solve: {colored("**** ITERATION " + str(iterations) + " ****", "red", attrs=["bold"])}')
+            logger.info(f'solve: files={[ str(fname) for fname in files ]}')
+            logger.info(f'solve: cmd={solver_cmd}')
+
+            solve_output = []
+            time_pair = [ -1, -1 ]
+            if best_model_filename.exists(): best_model_filename.unlink()
+            with Popen(solver_cmd, stdout=PIPE, shell=True, bufsize=1, universal_newlines=True) as p:
+                for line in p.stdout:
+                    line = line.strip('\n')
+                    logger.info(f'solve: {line}')
+                    solve_output.append(line)
+                    if line[:4] == 'Time':
+                        time_pair[0] = line.split()
+                    elif line[:8] == 'CPU Time':
+                        time_pair[1] = line.split()
+
+            # update solver time
+            solver_times_raw.append(tuple(time_pair))
+            if time_pair[0] != -1:
+                assert len(time_pair[0]) == 10 and time_pair[0][2][-1] == 's'
+                wall_time = float(time_pair[0][2][:-1])
+                solve_time = float(time_pair[0][4][:-1])
+                ground_time = wall_time - solve_time
+                solver_wall_times.append(wall_time)
+                solver_ground_times.append(ground_time)
+            if time_pair[1] != -1:
+                assert len(time_pair[1]) == 4 and time_pair[1][3][-1] == 's'
+                cpu_time = float(time_pair[1][3][:-1])
+                solver_cpu_times.append(cpu_time)
+
+        # if this model verifies over test set, no further computation is needed
+        calculate_model = False
+
+        # If solution found, iterate over test set:
+        #   1. Verify best model over test set, one file at a time
+        #   2. For each failure, expand training set with triplets (s,a,s') for offending nodes
+        if best_model_filename.is_file():
+            logger.info(f'solve: Model found in {best_model_filename}')
+            lifted_model = parse_lifted_model(best_model_filename, logger)
+
+            test_files = sort_lp_files_by_size(get_lp_files(test_path, [ '.*_caused.lp' ]))
+            verify_times = []
+            for fname in test_files:
+                verify_start_time = timer()
+                raw, distilled = parse_graph_file(fname, logger)
+                ground_model = ground(lifted_model, distilled, logger)
+                inst, unverified_nodes = verify_ground_model(ground_model, logger)
+                verify_elapsed_time = timer() - verify_start_time
+                verify_times.append(verify_elapsed_time)
+
+                if unverified_nodes:
+                    partial = (fname.name, unverified_nodes)
+                    if written_to_partial and written_to_partial[-1] == partial:
+                        elapsed_time = timer() - start_time
+                        logger.error(f'solve: Looping on partial.lp with {partial}')
+                        logger.info(f'solve: #calls={len(solver_wall_times)}, solve_wall_time={sum(solver_wall_times)}, solve_ground_time={sum(solver_ground_times)}, verify_time={sum(map(lambda batch: sum(batch), verify_times_batches))}, elapsed_time={elapsed_time}')
+                        exit(-1)
+                    else:
+                        written_to_partial.append(partial)
+
+                    # copy fname to solve path, and fill in partial.lp
+                    if not solve_args.verify_only:
+                        if not (solve_path / fname.name).exists():
+                            added_files.append((inst, fname))
+                            shutil.copy(fname, solve_path)
+
+                        with (solve_path / 'partial.lp').open('a') as fd:
+                            fd.write(f'filename("{fname.name}").\n')
+                            fd.write(f'partial({inst},"{fname.name}").\n')
+                            added_states.append(0)
+                            n = solve_args.max_nodes_per_iteration if solve_args.max_nodes_per_iteration > 0 else len(unverified_nodes)
+                            shuffle(unverified_nodes)
+                            for node in unverified_nodes[:n]:
+                                added_states[-1] += 1
+                                fd.write(f'relevant({inst},{node}).\n')
+                        calculate_model = True
+                    break
+            verify_times_batches.append(verify_times)
+
+    elapsed_time = timer() - start_time
+    logger.info(f'solve: #iterations={iterations}, added_files={added_files}, #added_states={sum(added_states)} in {added_states}')
+    logger.info(f'solve: #calls={len(solver_wall_times)}, solve_wall_time={sum(solver_wall_times)}, solve_ground_time={sum(solver_ground_times)}, verify_time={sum(map(lambda batch: sum(batch), verify_times_batches))}, elapsed_time={elapsed_time}')
+
+def read_file(filename : Path, logger) -> List[str]:
+    lines = [ line for line in filename.open('r') ]
+    for line in tqdm(lines, desc = f"read file '{filename}'", file=stdout):
+        line = line.strip('\n')
+        if line != '':
+            index_first_non_white_char = len(line) - len(line.lstrip())
+            if index_first_non_white_char < len(line) and line[index_first_non_white_char] != '%':
+                split = line.strip('\n').split()
+                for r in split:
+                    assert r != ''
+                    if r[0] == '%': break
+                    yield r
+    logger.info(f'read_file: {len(lines)} record(s) from {filename}')
+    return
+
+def parse_record(record : str, sep_tok : str = ',', grouping_tok : str = '()', logger = None, debug : bool = False) -> List[str]:
+    fields = []
+    balance = 0
+
+    if False:
+        j, k = 0, 0
+        for i in range(len(record)):
+            if record[i] == sep_tok and balance == 0:
+                fields.append(record[j:j+k])
+                j, k = i+1, 0
+            else:
+                k += 1
+                if record[i] == grouping_tok[0]:
+                    balance += 1
+                elif record[i] == grouping_tok[1]:
+                    balance -= 1
+        if k > 0: fields.append(record[j:j+k])
+    else:
+        field = ''
+        for char in record:
+            if char == sep_tok and balance == 0:
+                fields.append(field)
+                field = ''
+            else:
+                field += char
+                if char == grouping_tok[0]:
+                    balance += 1
+                elif char == grouping_tok[1]:
+                    balance -= 1
+        if field: fields.append(field)
+
+    if debug: logger.debug(f'parse_record: record={record}, fields={fields}')
+    return fields
+
+def parse_lifted_model(filename : Path, logger) -> dict:
+    lifted_model = dict(action=dict(), pred=set(), eff=[], prec=[], constants=set())
+    for line in read_file(filename, logger):
+        if line[:8] == 'a_arity(' and line[-1] == '.':
+            fields = parse_record(line[8:-2], logger=logger, debug=False)
+            action = fields[0]
+            arity = int(fields[1])
+            if action not in lifted_model['action']:
+                lifted_model['action'][action] = dict(arity=arity, prec=[], eff=[])
+            else:
+                lifted_model['action'][action]['arity'] = arity
+        elif line[:5] == 'pred(' and line[-1] == '.':
+            fields = parse_record(line[5:-2], logger=logger, debug=False)
+            lifted_model['pred'].add(fields[0])
+        elif line[:4] == 'eff(' and line[-1] == '.':
+            fields = parse_record(line[4:-2], logger=logger, debug=False)
+            assert len(fields) == 3
+            action = fields[0]
+            if action not in lifted_model['action']:
+                lifted_model['action'][action] = dict(arity=-1, prec=[], eff=[])
+            atom_fields = parse_record(fields[1][1:-1], logger=logger, debug=False)
+            atom_args = parse_record(atom_fields[1][1:-1], logger=logger, debug=False)
+            if atom_args == [ 'null' ]:
+                atom = (atom_fields[0], (0,))
+            else:
+                atom = (atom_fields[0], tuple([ int(arg) if arg.isdecimal() else arg for arg in atom_args ]))
+            value = int(fields[2])
+            lifted_model['action'][action]['eff'].append((atom, value))
+        elif line[:5] == 'prec(' and line[-1] == '.':
+            fields = parse_record(line[5:-2], logger=logger, debug=False)
+            assert len(fields) == 3
+            action = fields[0]
+            if action not in lifted_model['action']:
+                lifted_model['action'][action] = dict(arity=-1, prec=[], eff=[])
+            atom_fields = parse_record(fields[1][1:-1], logger=logger, debug=False)
+            atom_args = parse_record(atom_fields[1][1:-1], logger=logger, debug=False)
+            if atom_args == [ 'null' ]:
+                atom = (atom_fields[0], (0,))
+            else:
+                atom = (atom_fields[0], tuple([ int(arg) if arg.isdecimal() else arg for arg in atom_args ]))
+            value = int(fields[2])
+            lifted_model['action'][action]['prec'].append((atom, value))
+        elif line[:9] == 'constant(' and line[-1] == '.':
+            fields = parse_record(line[9:-2], logger=logger, debug=False)
+            assert len(fields) == 1
+            constant = fields[0]
+            lifted_model['constants'].add(constant)
+        else:
+            logger.warning(f'parse_lifted_model: Unrecognized line |{line}|')
+    return lifted_model
+
+def parse_graph_file(filename : Path, logger) -> List[dict]:
+    assert filename.name[-3:] == '.lp', f"{colored('ERROR:', 'red')} unexpected filename '{filename}'"
+
+    raw = dict(filename=filename, instance=[], node=[], tlabel=[], f_static=[], fval=[], feature=[], f_arity=[])
+    distilled = dict(filename=filename, node=dict(), tlabel=dict(), f_static=dict(), fval=dict(), fval_static=dict(), feature=dict())
+    for line in read_file(filename, logger):
+        if line[:9] == 'instance(' and line[-1] == '.':
+            fields = parse_record(line[9:-2], logger=logger, debug=False)
+            inst = int(fields[0])
+            #raw['instance'].append(inst)
+        elif line[:7] == 'tlabel(' and line[-1] == '.':
+            fields = parse_record(line[7:-2], logger=logger, debug=False)
+            inst = int(fields[0])
+            label = fields[2]
+            edge_fields = parse_record(fields[1][1:-1], logger=logger, debug=False)
+            assert len(edge_fields) == 2
+            edge = (int(edge_fields[0]), int(edge_fields[1]))
+            #raw['tlabel'].append((inst, edge, label))
+            if inst not in distilled['tlabel']:
+                distilled['tlabel'][inst] = dict()
+            if label not in distilled['tlabel'][inst]:
+                distilled['tlabel'][inst][label] = []
+            distilled['tlabel'][inst][label].append(edge)
+        elif line[:5] == 'node(' and line[-1] == '.':
+            fields = parse_record(line[5:-2], logger=logger, debug=False)
+            inst = int(fields[0])
+            node = int(fields[1])
+            #raw['node'].append((inst, node))
+            if inst not in distilled['node']:
+                distilled['node'][inst] = []
+            distilled['node'][inst].append(node)
+        elif line[:9] == 'f_static(' and line[-1] == '.':
+            fields = parse_record(line[9:-2], logger=logger, debug=False)
+            inst = int(fields[0])
+            feature = fields[1]
+            #raw['f_static'].append((inst, feature))
+            if inst not in distilled['f_static']:
+                distilled['f_static'][inst] = set()
+            distilled['f_static'][inst].add(feature)
+        elif line[:5] == 'fval(' and line[-1] == '.':
+            fields = parse_record(line[5:-2], logger=logger, debug=False)
+            assert len(fields) in [3, 4]
+            inst = int(fields[0])
+            atom_fields = parse_record(fields[1][1:-1], logger=logger, debug=False)
+            assert len(atom_fields) == 2
+            arg_fields = parse_record(atom_fields[1][1:-1], logger=logger, debug=False)
+            atom = (atom_fields[0], tuple(arg_fields))
+            node = None if len(fields) == 3 else int(fields[2])
+            value = int(fields[-1])
+            #raw['fval'].append((inst, atom, node, value))
+
+            key = 'fval_static' if len(fields) == 3 else 'fval'
+            if inst not in distilled[key]:
+                distilled[key][inst] = dict()
+                distilled[key][inst][0] = set()
+                distilled[key][inst][1] = set()
+                #distilled[key][inst]['atom'] = dict()
+                if node != None:
+                    distilled[key][inst]['node'] = dict()
+
+            #if atom[0] not in distilled[key][inst]['atom']:
+            #    distilled[key][inst]['atom'][atom[0]] = []
+
+            fval = (atom, node) if node != None else atom
+            distilled[key][inst][value].add(fval)
+            #fval = (atom[1], node, value) if node != None else (atom[1], value)
+            #distilled[key][inst]['atom'][atom[0]].append(fval)
+
+            if node != None:
+                if node not in distilled[key][inst]['node']:
+                    distilled[key][inst]['node'][node] = []
+                distilled[key][inst]['node'][node].append((atom, value))
+        elif line[:8] == 'feature(' and line[-1] == '.':
+            fields = parse_record(line[8:-2], logger=logger, debug=False)
+            assert len(fields) == 1
+            feature = fields[0]
+            #raw['feature'].append(feature)
+        elif line[:8] == 'f_arity(' and line[-1] == '.':
+            fields = parse_record(line[8:-2], logger=logger, debug=False)
+            assert len(fields) == 2
+            feature = fields[0]
+            arity = int(fields[1])
+            #raw['f_arity'].append((feature, arity))
+            if feature not in distilled['feature']:
+                distilled['feature'][feature] = arity
+            else:
+                assert distilled['feature'][feature] == arity
+        else:
+            logger.warning(f'parse_graph_file: Unrecognized line |{line}|')
+    return raw, distilled
+
+def ground(lifted_model : dict, distilled : dict, logger, debug : bool = False) -> dict:
+    # ground atoms
+    ground_model = dict(instances=set(), gatoms=dict(), gatoms_r=dict(), pred=lifted_model['pred'], constants=lifted_model['constants'], filename=distilled['filename'], feature=distilled['feature'], tlabel=distilled['tlabel'], f_static=distilled['f_static'])
+    for key in [ 'fval_static', 'fval' ]:
+        for inst in distilled[key].keys():
+            ground_model['instances'].add(inst)
+            if inst not in ground_model['gatoms']:
+                ground_model['gatoms'][inst] = dict()
+                ground_model['gatoms_r'][inst] = []
+            for value in range(2):
+                for item in distilled[key][inst][value]:
+                    atom = item[0] if type(item[0]) == tuple else item
+                    assert type(atom) == tuple and len(atom) == 2
+                    if atom[1] == ('null',) or atom[1] == ('0',):
+                        atom = (atom[0], ())
+                        ground_model['feature'][atom[0]] = 0
+                    if atom not in ground_model['gatoms'][inst]:
+                        index = len(ground_model['gatoms'][inst])
+                        ground_model['gatoms'][inst][atom] = index
+                        ground_model['gatoms_r'][inst].append(atom)
+
+    num_gatoms = dict()
+    for inst in ground_model['instances']:
+        num_gatoms[inst] = len(ground_model['gatoms'][inst])
+
+    # grounded fval structures
+    for key in [ 'fval_static', 'fval' ]:
+        ground_model[key] = dict()
+        for inst in distilled[key].keys():
+            ground_model[key][inst] = dict()
+            ground_model[key][inst][1] = []
+            for item in distilled[key][inst][1]:
+                atom = item[0] if type(item[0]) == tuple else item
+                node = item[1] if type(item[0]) == tuple else None
+                if atom[1] == ('null',) or atom[1] == ('0',): atom = (atom[0], ())
+                assert atom in ground_model['gatoms'][inst], f'grounding: (1) inst={inst}, atom={atom}'
+                gatom = ground_model['gatoms'][inst][atom]
+                ground_model[key][inst][1].append(gatom if node == None else (gatom, node))
+
+    for inst in distilled['fval'].keys():
+        ground_model['fval'][inst]['node'] = dict()
+        for node in distilled['fval'][inst]['node'].keys():
+            ground_model['fval'][inst]['node'][node] = set()
+            for atom, value in distilled['fval'][inst]['node'][node]:
+                if value == 1:
+                    if atom[1] == ('null',) or atom[1] == ('0',): atom = (atom[0], ())
+                    assert atom in ground_model['gatoms'][inst], f'grounding: (2) inst={inst}, atom={atom}'
+                    gatom = ground_model['gatoms'][inst][atom]
+                    ground_model['fval'][inst]['node'][node].add(gatom)
+            assert set([ atom for atom, st in ground_model['fval'][inst][1] if st == node ]) == ground_model['fval'][inst]['node'][node]
+
+    # objects
+    num_objects = dict()
+    ground_model['objects'] = dict()
+    for inst in ground_model['gatoms_r']:
+        ground_model['objects'][inst] = set()
+        for atom in ground_model['gatoms_r'][inst]:
+            assert type(atom[0]) == str and type(atom[1]) == tuple
+            if atom[0] == 'verum':
+                for obj in atom[1]: ground_model['objects'][inst].add(obj)
+        num_objects[inst] = len(ground_model['objects'][inst])
+
+    # grounded actions
+    ground_model.update(dict(gactions=dict(), gactions_r=dict()))
+    for inst in ground_model['instances']:
+        ground_model['gactions'][inst] = dict()
+        ground_model['gactions_r'][inst] = []
+        for label in lifted_model['action']:
+            arity = lifted_model['action'][label]['arity']
+            assert arity >= 0, f'{colored("ERROR:", "red")} grounding: arity={arity} for action {label}'
+            filter_fn = lambda item: len(set(item)) == arity # CHECK: FILTER FUNCTION
+            #for args in filter(filter_fn, itertools.product([ item for item in ground_model['objects'][inst] ], repeat=arity)):
+            for args in filter(filter_fn, itertools.product([ item for item in ground_model['objects'][inst] if item not in ground_model['constants'] ], repeat=arity)):
+                # calculate action items and nodes where it's applicable
+                items = dict(label=label, args=args, prec=[], eff=[], appl=[])
+                is_applicable = True
+                warnings = []
+                for key in ['prec', 'eff']:
+                    for lifted, value in lifted_model['action'][label][key]:
+                        #if key == 'eff' and lifted[0] in distilled['f_static'][inst]:
+                        #    print(f"{colored('WARNING:', 'magenta')} effect '{lifted[0]}({','.join([ str(i) for i in lifted[1] ])})={value}' over static predicate '{lifted[0]}' for inst={inst}")
+                        assert lifted[0] in lifted_model['pred']
+                        if lifted[1] == (0,):
+                            pargs = ()
+                        else:
+                            assert 0 not in lifted[1]
+                            pargs = tuple([ args[i-1] if type(i) == int else i for i in lifted[1] ])
+                        glifted = (lifted[0], pargs)
+                        index = -1 if glifted not in ground_model['gatoms'][inst] else ground_model['gatoms'][inst][glifted]
+                        if index == -1:
+                            if key == 'prec' and value == 1:
+                                is_applicable = False
+                                break
+                            elif debug:
+                                warnings.append(f'{colored("INFO:", "green")} grounding: inexistent ground atom {glifted} (value={value}) in {key} for inst={inst} in {label}({",".join(args)})')
+                        items[key].append((glifted, index, value))
+                    if not is_applicable: break
+
+                if is_applicable and applicable_static(ground_model, inst, items):
+                    for node in ground_model['fval'][inst]['node']:
+                        if applicable_dynamic(ground_model, inst, node, items):
+                            items['appl'].append(node)
+
+                    if items['appl']:
+                        index = len(ground_model['gactions_r'][inst])
+                        ground_model['gactions'][inst][(label, args)] = index
+                        ground_model['gactions_r'][inst].append(items)
+                        if debug: logger.debug(f'ground: gaction: {index}={(label, args)}, appl={items["appl"]}')
+                        for warning in warnings: logger.warning(f'ground: {warning}')
+
+    # calculate number nodes
+    num_nodes = dict()
+    for inst in distilled['node']:
+        num_nodes[inst] = len(distilled['node'][inst])
+
+    logger.info(f'ground: #nodes={num_nodes}, #features={len(ground_model["feature"])}, #objects={num_objects}, #grounded-atoms={num_gatoms}')
+    return ground_model
+
+
+def applicable_static(ground_model : dict, inst : int, action : dict) -> bool:
+    for gprec, index, value in action['prec']:
+        assert gprec[0] in ground_model['pred']
+        if gprec[0] in ground_model['f_static'][inst]:
+            if value == 1 and index == -1:
+                return False
+            elif value == 0 and index != -1 and index in ground_model['fval_static'][inst][1]:
+                return False
+            elif value == 1 and index != -1 and index not in ground_model['fval_static'][inst][1]:
+                return False
+    return True
+
+def applicable_dynamic(ground_model : dict, inst : int, node_index : int, action : dict) -> bool:
+    for gprec, index, value in action['prec']:
+        assert gprec[0] in ground_model['pred']
+        if gprec[0] not in ground_model['f_static'][inst]:
+            if value == 1 and index == -1:
+                return False
+            elif value == 0 and index != -1 and index in ground_model['fval'][inst]['node'][node_index]:
+                return False
+            elif value == 1 and index != -1 and index not in ground_model['fval'][inst]['node'][node_index]:
+                return False
+    return True
+
+def applicable(ground_model : dict, inst : int, node_index : int, action : dict) -> bool:
+    return applicable_static(ground_model, inst, action) and applicable_dynamic(ground_model, inst, node_index, action)
+
+def transition(ground_model : dict, inst : int, src_index : int, action : dict, f_nodes : List, f_nodes_r : dict, logger, debug : bool = False) -> List:
+    dst = set(f_nodes[src_index])
+    if debug: logger.info(f'transition: src={src_index}.{dst}, action={action["label"]}{action["args"]}')
+    for gatom, index, value in action['eff']:
+        assert gatom[0] in ground_model['pred']
+        if index == -1:
+            if value == 1:
+                logger.error(f'transition: inexistent ground atom {gatom} (add effect)')
+                return -1
+            else:
+                logger.warning(f'transition: inexistent ground atom {gatom} (del effect, issue warning)')
+        elif value == 0:
+            if gatom[0] in ground_model['f_static'][inst] and index in ground_model['fval_static'][inst][1]:
+                logger.error(f'transition: trying to remove non-existent static atom {gatom}')
+                return -1
+            elif gatom[0] not in ground_model['f_static'][inst] and index in dst:
+                if debug: logger.info(f'transition: remove atom {index}.{gatom}')
+                dst.remove(index)
+        else:
+            if gatom[0] in ground_model['f_static'][inst] and index not in ground_model['fval_static'][inst][1]:
+                logger.error(f'transition: trying to assert non-true static atom {index}.{gatom}')
+                return -1
+            elif gatom[0] not in ground_model['f_static'][inst] and index not in dst:
+                if debug: logger.info(f'transition: assert atom {index}.{gatom}')
+                dst.add(index)
+    key = tuple(sorted(list(dst)))
+    dst_index = -1 if key not in f_nodes_r else f_nodes_r[key]
+    if debug:
+        dst_gatoms = [ ground_model['gatoms_r'][inst][i] for i in dst ]
+        logger.info(f'transition: dst={dst_index}.{dst}={dst_gatoms}')
+    return dst_index
+
+def verify_nodes_are_different(ground_model : dict, inst : int, selected_gatoms : set) -> List:
+    nodes = list(ground_model['fval'][inst]['node'].keys())
+    for i in range(len(nodes)):
+        inode = set([ gatom for gatom in ground_model['fval'][inst]['node'][nodes[i]] if gatom in selected_gatoms ])
+        for j in range(i+1, len(nodes)):
+            jnode = set([ gatom for gatom in ground_model['fval'][inst]['node'][nodes[j]] if gatom in selected_gatoms ])
+            if inode == jnode:
+                return False, (nodes[i], nodes[j])
+    return True, None
+
+
+def verify_instance_node(ground_model : dict, inst : int, node_index : int, f_nodes : List, f_nodes_r : dict, logger) -> List:
+    tlabels = ground_model['tlabel'][inst]
+    gactions_r = ground_model['gactions_r'][inst]
+    aindices = [ i for i in range(len(gactions_r)) if node_index in gactions_r[i]['appl'] ]
+
+    appl_actions = [ (aindex,gactions_r[aindex]) for aindex in aindices ]
+    appl_actions = [ f"{aindex}.{action['label']}({','.join(action['args'])})" for aindex, action in appl_actions ]
+    logger.info(f'verify_instance_node: inst={inst}, node={node_index}, appl={appl_actions}')
+
+    transitions, transitions_without_args, err_transitions = [], [], []
+    for aindex in aindices:
+        action = gactions_r[aindex]
+        label = action['label']
+        assert applicable(ground_model, inst, node_index, action)
+        rindex = transition(ground_model, inst, node_index, action, f_nodes, f_nodes_r, logger, debug=False)
+        if rindex != -1:
+            transitions.append((aindex, (node_index, rindex)))
+            transitions_without_args.append((label, (node_index, rindex)))
+        else:
+            transition(ground_model, inst, node_index, action, f_nodes, f_nodes_r, logger, debug=True)
+            err_transitions.append(((label, action['args']), node_index))
+
+    # check transitions appear as edges
+    transitions_without_edges = []
+    for aindex, edge in transitions:
+        gaction = gactions_r[aindex]
+        label = gaction['label']
+        if label not in tlabels or edge not in tlabels[label]:
+            transitions_without_edges.append(((label, gaction['args']), edge))
+
+    # check edges appear as transitions
+    edges_without_transitions = []
+    for label in tlabels:
+        for edge in tlabels[label]:
+            if edge[0] == node_index and (label, edge) not in transitions_without_args:
+                edges_without_transitions.append((label, edge))
+
+    rv = not err_transitions and not transitions_without_edges and not edges_without_transitions
+    return rv, dict(err_transitions=err_transitions, transitions_without_edges=transitions_without_edges, edges_without_transitions=edges_without_transitions)
+
+def verify_instance(ground_model : dict, inst : int, logger) -> bool:
+    gatoms_r = ground_model['gatoms_r'][inst]
+    selected_gatoms = set([ gindex for gindex in range(len(gatoms_r)) if gatoms_r[gindex][0] in ground_model['pred'] ])
+    rv, pair = verify_nodes_are_different(ground_model, inst, selected_gatoms)
+
+    if not rv:
+        i, j = pair
+        nodes = ground_model['fval'][inst]['node']
+        logger.warning(f'verify_instance: Nodes {i} and {j} in inst={inst} are equal modulo selected predicates={ground_model["pred"]}')
+        inode = [ gatoms_r[k] for k in sorted(nodes[i]) if k in selected_gatoms ]
+        jnode = [ gatoms_r[k] for k in sorted(nodes[j]) if k in selected_gatoms ]
+        logger.warning(f'verify_instance: Projected s{i}={inode}')
+        logger.warning(f'verify_instance: Projected s{j}={jnode}')
+        if nodes[i] == nodes[j]:
+            logger.error(colored("verify_instance: These nodes aren't separated by any set of features", "red", attr = [ "bold" ]))
+        return False, [ i, j ]
+
+    num_nodes = len(ground_model['fval'][inst]['node'])
+    f_nodes = [ [] for _ in range(num_nodes) ]
+    f_nodes_r = dict()
+    for i, node in ground_model['fval'][inst]['node'].items():
+        assert type(node) == set
+        filtered = set([ gindex for gindex in node if gindex in selected_gatoms ])
+        f_nodes[i] = filtered
+        f_nodes_r[tuple(sorted(list(filtered)))] = i
+
+    unverified_nodes = []
+    for node_index in range(num_nodes):
+        rv, reason = verify_instance_node(ground_model, inst, node_index, f_nodes, f_nodes_r, logger)
+        if not rv:
+            unverified_nodes.append(node_index)
+            logger.warning(f'verify_instance: Bad verification in inst={inst} for node={node_index}; reason={reason}')
+    return unverified_nodes == [], unverified_nodes
+
+def verify_assumptions(ground_model : dict, inst : int, logger) -> bool:
+    # verify that each edge (S1,S2) is mapped to single action label A
+    tlabels = ground_model['tlabel'][inst]
+    edges = dict() # map edges to labels
+    for label in tlabels:
+        for edge in tlabels[label]:
+            if edge in edges:
+                logger.warning(f'verify_assumptions: Edge assumption violated for inst={inst}: edge={edge} has labels={[ label ] + tlabels[label]}')
+                return False
+            else:
+                edges[edge] = [ label ]
+    logger.info(f'verify_assumptions: All assumptions OK')
+    return True
+
+def verify_ground_model(ground_model : dict, logger) -> None:
+    for inst in ground_model['instances']:
+        rv1 = verify_assumptions(ground_model, inst, logger)
+        rv2, unverified_nodes = verify_instance(ground_model, inst, logger)
+        logger.info(f'verify_ground_model: filename={ground_model["filename"]}, status={rv1 and rv2}, rvs={[rv1, rv2]}, unverified_nodes={unverified_nodes}')
+        return inst, unverified_nodes
+
+if __name__ == '__main__':
+    default_max_time = 57600
+    default_max_nodes_per_iteration = 10
+
+    parser = argparse.ArgumentParser(description='Incremental learning of grounded PDDL models.')
+    parser.add_argument('--aws-instance', dest='aws_instance', type=lambda x:bool(strtobool(x)), default=True, help='describe AWS instance (boolean, default=true)')
+    parser.add_argument('--continue', dest='continue_solve', action='store_true', help='continue with already started synthesis process')
+    parser.add_argument('--debug-level', dest='debug_level', type=int, default=0, help=f'set debug level (default=0)')
+    parser.add_argument('--max-action-arity', dest='max_action_arity', type=int, default=3, help=f'set maximum action arity for schemas (default=3)')
+    parser.add_argument('--max-nodes-per-iteration', dest='max_nodes_per_iteration', action='append', help=f'max number of nodes added per iteration (0=all, default={default_max_nodes_per_iteration}')
+    parser.add_argument('--max-num-predicates', dest='max_num_predicates', type=int, default=12, help=f'set maximum number selected predicates (default=12)')
+    parser.add_argument('--max-time', dest='max_time', action='append', help=f'max-time for Clingo solver (0=no limit, default={default_max_time}')
+    parser.add_argument('--results', dest='results', action='append', help=f"folder to store results (default=graphs's folder)")
+    parser.add_argument('--verify-only', dest='verify_only', action='store_true', help='verify best model found over test set')
+    parser.add_argument('solver', type=str, help='solver (.lp file)')
+    parser.add_argument('domain', type=str, help='path to domain folder')
+    args = parser.parse_args()
+
+    # configure paths
+    solver = Path(args.solver)
+    domain = Path(args.domain)
+    solver_name = solver.stem
+    solve_path = (domain if not args.results else Path(args.results[0]) / domain.name) / f'solve_{solver_name}'
+    best_model_filename = solve_path / f'best_{domain.name}_{solver.name}'
+
+    # create/clean solve_path
+    continue_solve = args.continue_solve and solve_path.exists()
+    if not continue_solve and not args.verify_only:
+        solve_path.mkdir(parents=True, exist_ok=True)
+        for fname in solve_path.iterdir():
+            fname.unlink()
+
+        # populate solve_path with train set
+        train_path = domain / 'train'
+        for fname in train_path.iterdir():
+            shutil.copy(fname, solve_path)
+
+    # describe AWS instance
+    if args.aws_instance:
+        instance = solve_path / 'instance.txt'
+        get_aws_instance(instance)
+
+    # setup logger
+    log_file = solve_path / 'log.txt'
+    log_level = logging.INFO if args.debug_level == 0 else logging.DEBUG
+    logger = get_logger('solve', log_file, log_level)
+
+    solve_args = SolveArgs()
+    setattr(solve_args, 'max_action_arity', args.max_action_arity)
+    setattr(solve_args, 'max_nodes_per_iteration', int(args.max_nodes_per_iteration[0]) if args.max_nodes_per_iteration else default_max_nodes_per_iteration)
+    setattr(solve_args, 'max_num_predicates', args.max_num_predicates)
+    setattr(solve_args, 'max_time', int(args.max_time[0]) if args.max_time else default_max_time)
+    setattr(solve_args, 'solve_path', solve_path)
+    setattr(solve_args, 'verify_only', args.verify_only)
+    solve(solver, domain, best_model_filename, solve_args)
+
