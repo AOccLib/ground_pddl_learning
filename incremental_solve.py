@@ -1,5 +1,8 @@
 from distutils.util import strtobool
-import argparse, re, shutil, itertools
+from tempfile import TemporaryDirectory
+from shutil import copy as file_copy
+from shutil import get_unpack_formats, unpack_archive
+from itertools import product
 from sys import stdin, stdout
 from timeit import default_timer as timer
 from tqdm import tqdm
@@ -8,10 +11,21 @@ from subprocess import Popen, PIPE
 from termcolor import colored
 from typing import List
 from random import shuffle
+import argparse, re
 import logging
 
 class SolveArgs(object):
     pass
+
+def rm_tree(path : Path, logger) -> None:
+    for child in path.iterdir():
+        if child.is_file():
+            logger.info(f'rm_tree: unlink {child}')
+            child.unlink()
+        else:
+            rm_tree(child, logger)
+    logger.info(f'rm_tree: rmdir {path}')
+    path.rmdir()
 
 def get_logger(name : str, log_file : Path, level = logging.INFO):
     logger = logging.getLogger(name)
@@ -139,7 +153,7 @@ def solve(solver : Path, domain : Path, best_model_filename : Path, solve_args :
         #   1. Verify best model over test set, one file at a time
         #   2. For each failure, expand training set with triplets (s,a,s') for offending nodes
         if best_model_filename.is_file():
-            logger.info(f'solve: Model found in {best_model_filename}')
+            logger.info(f'solve: model found in {best_model_filename}')
             lifted_model = parse_lifted_model(best_model_filename, logger)
 
             test_files = sort_lp_files_by_size(get_lp_files(test_path, [ '.*_caused.lp' ]))
@@ -156,7 +170,7 @@ def solve(solver : Path, domain : Path, best_model_filename : Path, solve_args :
                     partial = (fname.name, unverified_nodes)
                     if written_to_partial and written_to_partial[-1] == partial:
                         elapsed_time = timer() - start_time
-                        logger.error(f'solve: Looping on partial.lp with {partial}')
+                        logger.error(f'solve: looping on partial.lp with {partial}')
                         logger.info(f'solve: #calls={len(solver_wall_times)}, solve_wall_time={sum(solver_wall_times)}, solve_ground_time={sum(solver_ground_times)}, verify_time={sum(map(lambda batch: sum(batch), verify_times_batches))}, elapsed_time={elapsed_time}')
                         exit(-1)
                     else:
@@ -166,7 +180,7 @@ def solve(solver : Path, domain : Path, best_model_filename : Path, solve_args :
                     if not solve_args.verify_only:
                         if not (solve_path / fname.name).exists():
                             added_files.append((inst, fname))
-                            shutil.copy(fname, solve_path)
+                            file_copy(fname, solve_path)
 
                         with (solve_path / 'partial.lp').open('a') as fd:
                             fd.write(f'filename("{fname.name}").\n')
@@ -282,7 +296,7 @@ def parse_lifted_model(filename : Path, logger) -> dict:
             constant = fields[0]
             lifted_model['constants'].add(constant)
         else:
-            logger.warning(f'parse_lifted_model: Unrecognized line |{line}|')
+            logger.warning(f'parse_lifted_model: unrecognized line |{line}|')
     return lifted_model
 
 def parse_graph_file(filename : Path, logger) -> List[dict]:
@@ -373,7 +387,7 @@ def parse_graph_file(filename : Path, logger) -> List[dict]:
             else:
                 assert distilled['feature'][feature] == arity
         else:
-            logger.warning(f'parse_graph_file: Unrecognized line |{line}|')
+            logger.warning(f'parse_graph_file: unrecognized line |{line}|')
     return raw, distilled
 
 def ground(lifted_model : dict, distilled : dict, logger, debug : bool = False) -> dict:
@@ -446,9 +460,9 @@ def ground(lifted_model : dict, distilled : dict, logger, debug : bool = False) 
         for label in lifted_model['action']:
             arity = lifted_model['action'][label]['arity']
             assert arity >= 0, f'{colored("ERROR:", "red")} grounding: arity={arity} for action {label}'
-            filter_fn = lambda item: len(set(item)) == arity # CHECK: FILTER FUNCTION
-            #for args in filter(filter_fn, itertools.product([ item for item in ground_model['objects'][inst] ], repeat=arity)):
-            for args in filter(filter_fn, itertools.product([ item for item in ground_model['objects'][inst] if item not in ground_model['constants'] ], repeat=arity)):
+            filter_fn = lambda item: len(set(item)) == arity # CHECK: THIS FILTER RESULTS IN GROUNDED ACTIONS WITHOUT REPEATED ARGUMENTS
+            # CHECK: THIS DECISON IS NOT FIXED. PROPER THING WOULD BE TO ADD FLAG TO SOLVER AND USE IT IN THIS FUNCTION AND TO SET opt_equal_objects IN ASP PROGRAM
+            for args in filter(filter_fn, product([ item for item in ground_model['objects'][inst] if item not in ground_model['constants'] ], repeat=arity)):
                 # calculate action items and nodes where it's applicable
                 items = dict(label=label, args=args, prec=[], eff=[], appl=[])
                 is_applicable = True
@@ -613,13 +627,13 @@ def verify_instance(ground_model : dict, inst : int, logger) -> bool:
     if not rv:
         i, j = pair
         nodes = ground_model['fval'][inst]['node']
-        logger.warning(f'verify_instance: Nodes {i} and {j} in inst={inst} are equal modulo selected predicates={ground_model["pred"]}')
+        logger.warning(f'verify_instance: nodes {i} and {j} in inst={inst} are equal modulo selected predicates={ground_model["pred"]}')
         inode = [ gatoms_r[k] for k in sorted(nodes[i]) if k in selected_gatoms ]
         jnode = [ gatoms_r[k] for k in sorted(nodes[j]) if k in selected_gatoms ]
-        logger.warning(f'verify_instance: Projected s{i}={inode}')
-        logger.warning(f'verify_instance: Projected s{j}={jnode}')
+        logger.warning(f'verify_instance: projected s{i}={inode}')
+        logger.warning(f'verify_instance: projected s{j}={jnode}')
         if nodes[i] == nodes[j]:
-            logger.error(colored("verify_instance: These nodes aren't separated by any set of features", "red", attr = [ "bold" ]))
+            logger.error(colored("verify_instance: these nodes aren't separated by any set of features", "red", attr = [ "bold" ]))
         return False, [ i, j ]
 
     num_nodes = len(ground_model['fval'][inst]['node'])
@@ -636,7 +650,7 @@ def verify_instance(ground_model : dict, inst : int, logger) -> bool:
         rv, reason = verify_instance_node(ground_model, inst, node_index, f_nodes, f_nodes_r, logger)
         if not rv:
             unverified_nodes.append(node_index)
-            logger.warning(f'verify_instance: Bad verification in inst={inst} for node={node_index}; reason={reason}')
+            logger.warning(f'verify_instance: bad verification in inst={inst} for node={node_index}; reason={reason}')
     return unverified_nodes == [], unverified_nodes
 
 def verify_assumptions(ground_model : dict, inst : int, logger) -> bool:
@@ -646,11 +660,10 @@ def verify_assumptions(ground_model : dict, inst : int, logger) -> bool:
     for label in tlabels:
         for edge in tlabels[label]:
             if edge in edges:
-                logger.warning(f'verify_assumptions: Edge assumption violated for inst={inst}: edge={edge} has labels={[ label ] + tlabels[label]}')
+                logger.warning(f'verify_assumptions: edge assumption violated for inst={inst}: edge={edge} has labels={[ label ] + tlabels[label]}')
                 return False
             else:
                 edges[edge] = [ label ]
-    logger.info(f'verify_assumptions: All assumptions OK')
     return True
 
 def verify_ground_model(ground_model : dict, logger) -> None:
@@ -678,11 +691,29 @@ if __name__ == '__main__':
     parser.add_argument('domain', type=str, help='path to domain folder')
     args = parser.parse_args()
 
-    # configure paths
+    # setup solver paths
     solver = Path(args.solver)
-    domain = Path(args.domain)
     solver_name = solver.stem
     solve_folder = f'{solver_name}_a={args.max_action_arity}_p={args.max_num_predicates}'
+
+    # setup domain paths
+    domain = Path(args.domain)
+    suffix = ''.join(domain.suffixes)
+    compressed_formats = [ ext for format in get_unpack_formats() for ext in format[1] ]
+    if suffix in compressed_formats:
+        # if compressed domain, unpack it in tmp folder
+        tmp_folder = Path(TemporaryDirectory().name)
+        print(f'Domain {domain} is compressed; uncompressing it in temporary folder {tmp_folder}')
+        unpack_archive(domain, tmp_folder)
+        subfolders = [ fname for fname in tmp_folder.iterdir() if fname.is_dir() ]
+        assert len(subfolders) > 0, f'Empty compressed file {domain}'
+        print(f'Subfolders in compressed domain {subfolders}')
+        domain = Path(subfolders[0])
+        print(f'Using subfolder {domain} as domain')
+    else:
+        tmp_folder = None
+
+    # setup solve path and best-model filename
     solve_path = (domain if not args.results else Path(args.results[0]) / domain.name) / solve_folder
     best_model_filename = solve_path / f'best_{domain.name}_{solver.name}'
 
@@ -696,7 +727,7 @@ if __name__ == '__main__':
         # populate solve_path with train set
         train_path = domain / 'train'
         for fname in train_path.iterdir():
-            shutil.copy(fname, solve_path)
+            file_copy(fname, solve_path)
 
     # describe AWS instance
     if args.aws_instance:
@@ -716,4 +747,16 @@ if __name__ == '__main__':
     setattr(solve_args, 'solve_path', solve_path)
     setattr(solve_args, 'verify_only', args.verify_only)
     solve(solver, domain, best_model_filename, solve_args)
+
+    # cleanup
+    if tmp_folder != None:
+        print(f'domain={domain}')
+        print(f'solve_path={solve_path}')
+        n = len(str(domain))
+        if str(domain) == str(solve_path)[:n]:
+            logger.warning(f'main: temporary folder {domain} not removed because results are stored there')
+        else:
+            rm_tree(tmp_folder, logger)
+            logger.info(f'main: temporary folder {tmp_folder} removed')
+    logger.info(f'main: results stored in {solve_path}')
 
