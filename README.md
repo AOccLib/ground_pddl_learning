@@ -18,36 +18,57 @@ The **domains** folder contains the PDDL definitions for domains and instances u
     └── ...
 ```
 ### Graphs
-The **graphs** folder contains the input graphs used for in the experiments. The folder structure is as follows:
+The **graphs** folder contains the input graphs for a given domain used in the experiments in **compressed format**.
+Once decompressed, a domain folder is as follows:
 ```bash
     .
-    ├── graphs                                  # defs of domains and instances used in experiments
-    │   ├── domain                              # name of domain 1
-    │   │   ├── object_types.pl                 # pre-computed object types for the domain
-    │   │   ├── instance1.lp                    # graph data for instance 1
-    │   │   ├── instance1_caused.lp             # pre-computed caused changes (deltas)
-    │   │   ...		
-    │   │   ├── instanceN.lp                    # graph data for instance N
-    │   │   └── instanceN_caused.lp             # problem definition N
-    │   └── domain2		
-    │   │   ...		
-    └── ...
-```
-### Learned models
-The **learned_models** folder contains a file for each domain (sort of pretty-printed). The file includes:
-```bash
-1. Chosen action arities
-2. Chosen predicates
-3. Action names
-4. Chosen ground actions
-5. Learned action schemas
+    └── domain                                   # name of domain
+        ├── train                                # folder containing training instances, typically it only contains object_types.lp
+        └── test                                 # folder containing test instances, typically it contains all graphs for the domain
 ```
 ### Feature definitions
 The ``features.lp`` file defines the members of the feature pool (concepts and roles from description logic) via clingo rules. (Subset definitions not included, these were computed elsewhere).
 
-### Running a single experiment
-To run a single experiment for one of the domains, run ``learn.lp`` together with the files in the **graphs** folder for that domain. For example, for Blocks:
+### Solvers
+The folder ``solvers/`` contains different .lp solvers. The default solver is ``solvers/solver.lp``.
 
+### Running a single experiment
+To run a single experiment for one of the domains with the incremental engine and the program ``solvers/solver.lp`` do:
 ```bash
-clingo learn.lp ./graphs/blocks/1block.lp ./graphs/blocks/1block_caused.lp ./graphs/blocks/3block.lp ./graphs/blocks/3block_caused.lp
+python3 incremental_solve.py solvers/solver.lp graphs/<domain> --results <results>
+```
+Results are stored in ``<results>``. Possible options for the incremental solver are:
+```bash
+usage: incremental_solve.py [-h] [--aws-instance AWS_INSTANCE] [--continue]
+                            [--debug-level DEBUG_LEVEL]
+                            [--max-action-arity MAX_ACTION_ARITY]
+                            [--max-nodes-per-iteration MAX_NODES_PER_ITERATION]
+                            [--max-num-predicates MAX_NUM_PREDICATES]
+                            [--max-time MAX_TIME] [--results RESULTS]
+                            [--verify-only]
+                            solver domain
+
+Incremental learning of grounded PDDL models.
+
+positional arguments:
+  solver                solver (.lp file)
+  domain                path to domain folder (it can be a .zip file)
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --aws-instance AWS_INSTANCE
+                        describe AWS instance (boolean, default=true)
+  --continue            continue with already started synthesis process
+  --debug-level DEBUG_LEVEL
+                        set debug level (default=0)
+  --max-action-arity MAX_ACTION_ARITY
+                        set maximum action arity for schemas (default=3)
+  --max-nodes-per-iteration MAX_NODES_PER_ITERATION
+                        max number of nodes added per iteration (0=all,
+                        default=10
+  --max-num-predicates MAX_NUM_PREDICATES
+                        set maximum number selected predicates (default=12)
+  --max-time MAX_TIME   max-time for Clingo solver (0=no limit, default=57600
+  --results RESULTS     folder to store results (default=graphs's folder)
+  --verify-only         verify best model found over test set
 ```
