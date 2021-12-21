@@ -678,7 +678,7 @@ if __name__ == '__main__':
     default_max_nodes_per_iteration = 10
 
     parser = argparse.ArgumentParser(description='Incremental learning of grounded PDDL models.')
-    parser.add_argument('--aws-instance', dest='aws_instance', type=lambda x:bool(strtobool(x)), default=True, help='describe AWS instance (boolean, default=true)')
+    parser.add_argument('--aws-instance', dest='aws_instance', type=lambda x:bool(strtobool(x)), default=False, help='describe AWS instance (boolean, default=false)')
     parser.add_argument('--continue', dest='continue_solve', action='store_true', help='continue with already started synthesis process')
     parser.add_argument('--debug-level', dest='debug_level', type=int, default=0, help=f'set debug level (default=0)')
     parser.add_argument('--max-action-arity', dest='max_action_arity', type=int, default=3, help=f'set maximum action arity for schemas (default=3)')
