@@ -688,7 +688,7 @@ if __name__ == '__main__':
     parser.add_argument('--results', dest='results', action='append', help=f"folder to store results (default=graphs's folder)")
     parser.add_argument('--verify-only', dest='verify_only', action='store_true', help='verify best model found over test set')
     parser.add_argument('solver', type=str, help='solver (.lp file)')
-    parser.add_argument('domain', type=str, help='path to domain folder')
+    parser.add_argument('domain', type=str, help='path to domain folder (it can be a .zip file)')
     args = parser.parse_args()
 
     # setup solver paths
