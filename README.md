@@ -1,6 +1,8 @@
 # Learning ground PDDL models
 
-The `learn.lp` file contains the clingo code for learning ground PDDL models from instance graphs.
+### Installation
+
+Python 3.7 is needed as well as the packages ``termcolor`` and ``tqdm``. Clingo 5.5.0 must be reachable and executable.
 
 ### Definitions of domains and instances
 
