@@ -20,11 +20,11 @@ class SolveArgs(object):
 def rm_tree(path : Path, logger) -> None:
     for child in path.iterdir():
         if child.is_file():
-            logger.info(f'rm_tree: unlink {child}')
+            logger.debug(f'rm_tree: unlink {child}')
             child.unlink()
         else:
             rm_tree(child, logger)
-    logger.info(f'rm_tree: rmdir {path}')
+    logger.debug(f'rm_tree: rmdir {path}')
     path.rmdir()
 
 def get_logger(name : str, log_file : Path, level = logging.INFO):
@@ -750,8 +750,6 @@ if __name__ == '__main__':
 
     # cleanup
     if tmp_folder != None:
-        print(f'domain={domain}')
-        print(f'solve_path={solve_path}')
         n = len(str(domain))
         if str(domain) == str(solve_path)[:n]:
             logger.warning(f'main: temporary folder {domain} not removed because results are stored there')
