@@ -160,7 +160,7 @@ def solve(solver : Path, domain : Path, best_model_filename : Path, solve_args :
             verify_times = []
             for fname in test_files:
                 verify_start_time = timer()
-                raw, distilled = parse_graph_file(fname, logger)
+                distilled = parse_graph_file(fname, logger)
                 ground_model = ground(lifted_model, distilled, logger)
                 inst, unverified_nodes = verify_ground_model(ground_model, logger)
                 verify_elapsed_time = timer() - verify_start_time
@@ -302,13 +302,11 @@ def parse_lifted_model(filename : Path, logger) -> dict:
 def parse_graph_file(filename : Path, logger) -> List[dict]:
     assert filename.name[-3:] == '.lp', f"{colored('ERROR:', 'red')} unexpected filename '{filename}'"
 
-    raw = dict(filename=filename, instance=[], node=[], tlabel=[], f_static=[], fval=[], feature=[], f_arity=[])
     distilled = dict(filename=filename, node=dict(), tlabel=dict(), f_static=dict(), fval=dict(), fval_static=dict(), feature=dict())
     for line in read_file(filename, logger):
         if line[:9] == 'instance(' and line[-1] == '.':
             fields = parse_record(line[9:-2], logger=logger, debug=False)
             inst = int(fields[0])
-            #raw['instance'].append(inst)
         elif line[:7] == 'tlabel(' and line[-1] == '.':
             fields = parse_record(line[7:-2], logger=logger, debug=False)
             inst = int(fields[0])
@@ -316,7 +314,6 @@ def parse_graph_file(filename : Path, logger) -> List[dict]:
             edge_fields = parse_record(fields[1][1:-1], logger=logger, debug=False)
             assert len(edge_fields) == 2
             edge = (int(edge_fields[0]), int(edge_fields[1]))
-            #raw['tlabel'].append((inst, edge, label))
             if inst not in distilled['tlabel']:
                 distilled['tlabel'][inst] = dict()
             if label not in distilled['tlabel'][inst]:
@@ -326,7 +323,6 @@ def parse_graph_file(filename : Path, logger) -> List[dict]:
             fields = parse_record(line[5:-2], logger=logger, debug=False)
             inst = int(fields[0])
             node = int(fields[1])
-            #raw['node'].append((inst, node))
             if inst not in distilled['node']:
                 distilled['node'][inst] = []
             distilled['node'][inst].append(node)
@@ -334,7 +330,6 @@ def parse_graph_file(filename : Path, logger) -> List[dict]:
             fields = parse_record(line[9:-2], logger=logger, debug=False)
             inst = int(fields[0])
             feature = fields[1]
-            #raw['f_static'].append((inst, feature))
             if inst not in distilled['f_static']:
                 distilled['f_static'][inst] = set()
             distilled['f_static'][inst].add(feature)
@@ -348,7 +343,6 @@ def parse_graph_file(filename : Path, logger) -> List[dict]:
             atom = (atom_fields[0], tuple(arg_fields))
             node = None if len(fields) == 3 else int(fields[2])
             value = int(fields[-1])
-            #raw['fval'].append((inst, atom, node, value))
 
             key = 'fval_static' if len(fields) == 3 else 'fval'
             if inst not in distilled[key]:
@@ -375,20 +369,18 @@ def parse_graph_file(filename : Path, logger) -> List[dict]:
             fields = parse_record(line[8:-2], logger=logger, debug=False)
             assert len(fields) == 1
             feature = fields[0]
-            #raw['feature'].append(feature)
         elif line[:8] == 'f_arity(' and line[-1] == '.':
             fields = parse_record(line[8:-2], logger=logger, debug=False)
             assert len(fields) == 2
             feature = fields[0]
             arity = int(fields[1])
-            #raw['f_arity'].append((feature, arity))
             if feature not in distilled['feature']:
                 distilled['feature'][feature] = arity
             else:
                 assert distilled['feature'][feature] == arity
         else:
             logger.warning(f'parse_graph_file: unrecognized line |{line}|')
-    return raw, distilled
+    return distilled
 
 def ground(lifted_model : dict, distilled : dict, logger, debug : bool = False) -> dict:
     # ground atoms
