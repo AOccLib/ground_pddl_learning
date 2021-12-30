@@ -99,12 +99,14 @@ def solve(solver : Path, domain : Path, best_model_filename : Path, solve_args :
     added_states = []
     added_files = []
     calculate_model = True
-    written_to_partial = []
     solver_times_raw = []
     solver_wall_times = []
     solver_ground_times = []
     solver_cpu_times = []
     verify_times_batches = []
+
+    # for checking whether trapped in infinite loop (set of new nodes cannot be subset of previous nodes)
+    already_solved = dict()
 
     # setup solver command
     max_action_arity = solve_args.max_action_arity
@@ -124,6 +126,8 @@ def solve(solver : Path, domain : Path, best_model_filename : Path, solve_args :
             time_pair = [ -1, -1 ]
             if best_model_filename.exists(): best_model_filename.unlink()
             with Popen(solver_cmd, stdout=PIPE, shell=True, bufsize=1, universal_newlines=True) as p:
+                g_running_children.append(p)
+                print(g_running_children)
                 for line in p.stdout:
                     line = line.strip('\n')
                     logger.info(f'{line}')
@@ -132,6 +136,7 @@ def solve(solver : Path, domain : Path, best_model_filename : Path, solve_args :
                         time_pair[0] = line.split()
                     elif line[:8] == 'CPU Time':
                         time_pair[1] = line.split()
+            g_running_children.pop()
 
             # update solver time
             solver_times_raw.append(tuple(time_pair))
@@ -168,14 +173,15 @@ def solve(solver : Path, domain : Path, best_model_filename : Path, solve_args :
                 verify_times.append(verify_elapsed_time)
 
                 if unverified_nodes:
-                    partial = (fname.name, unverified_nodes)
-                    if written_to_partial and written_to_partial[-1] == partial:
+                    if fname.name not in already_solved:
+                        already_solved[fname.name] = set()
+
+                    unsolved_nodes = [ node for node in unverified_nodes if node not in already_solved[fname.name] ]
+                    if not unsolved_nodes:
                         elapsed_time = timer() - start_time
                         logger.info(f'#calls={len(solver_wall_times)}, solve_wall_time={sum(solver_wall_times)}, solve_ground_time={sum(solver_ground_times)}, verify_time={sum(map(lambda batch: sum(batch), verify_times_batches))}, elapsed_time={elapsed_time}')
-                        logger.critical(f'Looping on partial.lp with {partial}')
+                        logger.critical(f'Looping on partial.lp with nodes {unverified_nodes} from {fname.name}; already_solved={already_solved[fname.name]}')
                         exit(-1)
-                    else:
-                        written_to_partial.append(partial)
 
                     # copy fname to solve path, and fill in partial.lp
                     if not solve_args.verify_only:
@@ -187,11 +193,12 @@ def solve(solver : Path, domain : Path, best_model_filename : Path, solve_args :
                             fd.write(f'filename("{fname.name}").\n')
                             fd.write(f'partial({inst},"{fname.name}").\n')
                             added_states.append(0)
-                            n = solve_args.max_nodes_per_iteration if solve_args.max_nodes_per_iteration > 0 else len(unverified_nodes)
-                            shuffle(unverified_nodes)
-                            for node in unverified_nodes[:n]:
+                            n = solve_args.max_nodes_per_iteration if solve_args.max_nodes_per_iteration > 0 else len(unsolved_nodes)
+                            shuffle(unsolved_nodes)
+                            for node in unsolved_nodes[:n]:
                                 added_states[-1] += 1
                                 fd.write(f'relevant({inst},{node}).\n')
+                                already_solved[fname.name].add(node)
                         calculate_model = True
                     break
             verify_times_batches.append(verify_times)
@@ -668,10 +675,15 @@ def verify_ground_model(ground_model : dict, logger) -> None:
 
 if __name__ == '__main__':
     # setup proper SIGTERM handler
-    def handler_sigterm(_signo, _stack_frame):
+    g_running_children = []
+    def sigterm_handler(_signo, _stack_frame):
         logger.warning(colored('Process INTERRUPTED by SIGTERM!', 'red'))
+        if g_running_children:
+            logger.info(f'Killing {len(g_running_children)} subprocess(es) ...')
+            for p in g_running_children:
+                p.kill()
         exit(0)
-    signal.signal(signal.SIGTERM, handler_sigterm)
+    signal.signal(signal.SIGTERM, sigterm_handler)
 
     # default values
     default_aws_instance = False
@@ -737,7 +749,7 @@ if __name__ == '__main__':
 
     # describe AWS instance
     if args.aws_instance:
-        instance = solve_path / 'instance.txt'
+        instance = solve_path / 'aws_instance_info.txt'
         get_aws_instance(instance)
 
     # setup logger
