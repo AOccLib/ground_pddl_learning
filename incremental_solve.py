@@ -708,7 +708,8 @@ if __name__ == '__main__':
 
     # setup solve path and best-model filename
     solve_path = (domain if not args.results else Path(args.results[0]) / domain.name) / solve_folder
-    best_model_filename = solve_path / f'best_{domain.name}_{solver.name}'
+    #best_model_filename = solve_path / f'best_{domain.name}_{solver.name}'
+    best_model_filename = solve_path / 'best_model.lp'
 
     # create/clean solve_path
     continue_solve = args.continue_solve and solve_path.exists()
