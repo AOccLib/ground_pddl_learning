@@ -501,18 +501,20 @@ diff_fnext(I,A,K,S1,S2,S3) :- relevant(I,S1), tlabel(I,(S1,S2),A), tlabel(I,(S1,
 
 % FACTORED next
 % F1. If (S1,S2) has label A, then A(OO) maps S1 to S2 for some object tuple OO
-%:- relevant(I,S1), a_arity(A,0), X = { tlabel(I,(S1,S2),A) : node(I,S2) }, #count {             S2 : tlabel(I,(S1,S2),A), fnext(I,0,0,S1,S2) } != X.
-%:- relevant(I,S1), a_arity(A,1), X = { tlabel(I,(S1,S2),A) : node(I,S2) }, #count {          O1,S2 : tlabel(I,(S1,S2),A), fnext(I,1,O1,S1,S2) } != X.
-%:- relevant(I,S1), a_arity(A,2), X = { tlabel(I,(S1,S2),A) : node(I,S2) }, #count {       O1,O2,S2 : tlabel(I,(S1,S2),A), fnext(I,1,O1,S1,S2), fnext(I,2,O2,S1,S2) } != X.
-%:- relevant(I,S1), a_arity(A,3), X = { tlabel(I,(S1,S2),A) : node(I,S2) }, #count {    O1,O2,O3,S2 : tlabel(I,(S1,S2),A), fnext(I,1,O1,S1,S2), fnext(I,2,O2,S1,S2), fnext(I,3,O3,S1,S2) } != X.
-%:- relevant(I,S1), a_arity(A,4), X = { tlabel(I,(S1,S2),A) : node(I,S2) }, #count { O1,O2,O3,O4,S2 : tlabel(I,(S1,S2),A), fnext(I,1,O1,S1,S2), fnext(I,2,O2,S1,S2), fnext(I,3,O3,S1,S2), fnext(I,4,O4,S1,S2) } != X.
+%*
+:- relevant(I,S1), a_arity(A,0), X = { tlabel(I,(S1,S2),A) : node(I,S2) }, #count {             S2 : tlabel(I,(S1,S2),A), fnext(I,0,0,S1,S2) } != X.
+:- relevant(I,S1), a_arity(A,1), X = { tlabel(I,(S1,S2),A) : node(I,S2) }, #count {          O1,S2 : tlabel(I,(S1,S2),A), fnext(I,1,O1,S1,S2) } != X.
+:- relevant(I,S1), a_arity(A,2), X = { tlabel(I,(S1,S2),A) : node(I,S2) }, #count {       O1,O2,S2 : tlabel(I,(S1,S2),A), fnext(I,1,O1,S1,S2), fnext(I,2,O2,S1,S2) } != X.
+:- relevant(I,S1), a_arity(A,3), X = { tlabel(I,(S1,S2),A) : node(I,S2) }, #count {    O1,O2,O3,S2 : tlabel(I,(S1,S2),A), fnext(I,1,O1,S1,S2), fnext(I,2,O2,S1,S2), fnext(I,3,O3,S1,S2) } != X.
+:- relevant(I,S1), a_arity(A,4), X = { tlabel(I,(S1,S2),A) : node(I,S2) }, #count { O1,O2,O3,O4,S2 : tlabel(I,(S1,S2),A), fnext(I,1,O1,S1,S2), fnext(I,2,O2,S1,S2), fnext(I,3,O3,S1,S2), fnext(I,4,O4,S1,S2) } != X.
+*%
 
-% ALTERNATIVE
+% Alternate
 :- relevant(I,S1), a_arity(A,0), tlabel(I,(S1,S2),A), not fnext(I,0,0,S1,S2).
-:- relevant(I,S1), a_arity(A,1), tlabel(I,(S1,S2),A), {          O1: fnext(I,1,O1,S1,S2) } != 1.
-:- relevant(I,S1), a_arity(A,2), tlabel(I,(S1,S2),A), {       O1,O2: fnext(I,1,O1,S1,S2), fnext(I,2,O2,S1,S2) } != 1.
-:- relevant(I,S1), a_arity(A,3), tlabel(I,(S1,S2),A), {    O1,O2,O3: fnext(I,1,O1,S1,S2), fnext(I,2,O2,S1,S2), fnext(I,3,O3,S1,S2) } != 1.
-:- relevant(I,S1), a_arity(A,4), tlabel(I,(S1,S2),A), { O1,O2,O3,O4: fnext(I,1,O1,S1,S2), fnext(I,2,O2,S1,S2), fnext(I,3,O3,S1,S2), fnext(I,4,O4,S1,S2) } != 1.
+:- relevant(I,S1), a_arity(A,1), tlabel(I,(S1,S2),A), #count {          O1 : fnext(I,1,O1,S1,S2) } != 1.
+:- relevant(I,S1), a_arity(A,2), tlabel(I,(S1,S2),A), #count {       O1,O2 : fnext(I,1,O1,S1,S2), fnext(I,2,O2,S1,S2) } != 1.
+:- relevant(I,S1), a_arity(A,3), tlabel(I,(S1,S2),A), #count {    O1,O2,O3 : fnext(I,1,O1,S1,S2), fnext(I,2,O2,S1,S2), fnext(I,3,O3,S1,S2) } != 1.
+:- relevant(I,S1), a_arity(A,4), tlabel(I,(S1,S2),A), #count { O1,O2,O3,O4 : fnext(I,1,O1,S1,S2), fnext(I,2,O2,S1,S2), fnext(I,3,O3,S1,S2), fnext(I,4,O4,S1,S2) } != 1.
 
 % F2. Different nodes are different states with respect to chosen predicates
 :- relevant(I,S1), relevant(I,S2), S1 < S2, fval(I,(P,OO),S2,V) : fval(I,(P,OO),S1,V), pred(P), not f_static(I,P).
