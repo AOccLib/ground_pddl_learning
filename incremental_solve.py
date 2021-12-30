@@ -11,7 +11,7 @@ from subprocess import Popen, PIPE
 from termcolor import colored
 from typing import List
 from random import shuffle
-import argparse, re
+import signal, argparse, re
 import logging
 
 class SolveArgs(object):
@@ -667,21 +667,33 @@ def verify_ground_model(ground_model : dict, logger) -> None:
         return inst, unverified_nodes
 
 if __name__ == '__main__':
+    # setup proper SIGTERM handler
+    def handler_sigterm(_signo, _stack_frame):
+        logger.warning(colored('Process INTERRUPTED by SIGTERM!', 'red'))
+        exit(0)
+    signal.signal(signal.SIGTERM, handler_sigterm)
+
+    # default values
+    default_aws_instance = False
+    default_debug_level = 0
     default_max_time = 57600
     default_max_nodes_per_iteration = 10
+    default_max_action_arity = 3
+    default_max_num_predicates = 12
 
+    # argument parser
     parser = argparse.ArgumentParser(description='Incremental learning of grounded PDDL models.')
-    parser.add_argument('--aws-instance', dest='aws_instance', type=lambda x:bool(strtobool(x)), default=False, help='describe AWS instance (boolean, default=false)')
-    parser.add_argument('--continue', dest='continue_solve', action='store_true', help='continue with already started synthesis process')
-    parser.add_argument('--debug-level', dest='debug_level', type=int, default=0, help=f'set debug level (default=0)')
-    parser.add_argument('--max-action-arity', dest='max_action_arity', type=int, default=3, help=f'set maximum action arity for schemas (default=3)')
-    parser.add_argument('--max-nodes-per-iteration', dest='max_nodes_per_iteration', action='append', help=f'max number of nodes added per iteration (0=all, default={default_max_nodes_per_iteration}')
-    parser.add_argument('--max-num-predicates', dest='max_num_predicates', type=int, default=12, help=f'set maximum number selected predicates (default=12)')
-    parser.add_argument('--max-time', dest='max_time', action='append', help=f'max-time for Clingo solver (0=no limit, default={default_max_time}')
+    parser.add_argument('--aws-instance', dest='aws_instance', type=lambda x:bool(strtobool(x)), default=default_aws_instance, help=f'describe AWS instance (boolean, default={default_aws_instance})')
+    parser.add_argument('--continue', dest='continue_solve', action='store_true', help='continue an interrupted learning process')
+    parser.add_argument('--debug-level', dest='debug_level', type=int, default=default_debug_level, help=f'set debug level (default={default_debug_level})')
+    parser.add_argument('--max-action-arity', dest='max_action_arity', type=int, default=default_max_action_arity, help=f'set maximum action arity for schemas (default={default_max_action_arity})')
+    parser.add_argument('--max-nodes-per-iteration', dest='max_nodes_per_iteration', type=int, default=default_max_nodes_per_iteration, help=f'max number of nodes added per iteration (0=all, default={default_max_nodes_per_iteration}')
+    parser.add_argument('--max-num-predicates', dest='max_num_predicates', type=int, default=default_max_num_predicates, help=f'set maximum number selected predicates (default={default_max_num_predicates})')
+    parser.add_argument('--max-time', dest='max_time', type=int, default=default_max_time, help=f'max-time for Clingo solver (0=no limit, default={default_max_time})')
     parser.add_argument('--results', dest='results', action='append', help=f"folder to store results (default=graphs's folder)")
     parser.add_argument('--verify-only', dest='verify_only', action='store_true', help='verify best model found over test set')
     parser.add_argument('solver', type=str, help='solver (.lp file)')
-    parser.add_argument('domain', type=str, help='path to domain folder (it can be a .zip file)')
+    parser.add_argument('domain', type=str, help="path to domain's folder (it can be a .zip file)")
     args = parser.parse_args()
 
     # setup solver paths
@@ -735,20 +747,25 @@ if __name__ == '__main__':
 
     solve_args = SolveArgs()
     setattr(solve_args, 'max_action_arity', args.max_action_arity)
-    setattr(solve_args, 'max_nodes_per_iteration', int(args.max_nodes_per_iteration[0]) if args.max_nodes_per_iteration else default_max_nodes_per_iteration)
+    setattr(solve_args, 'max_nodes_per_iteration', args.max_nodes_per_iteration)
     setattr(solve_args, 'max_num_predicates', args.max_num_predicates)
-    setattr(solve_args, 'max_time', int(args.max_time[0]) if args.max_time else default_max_time)
+    setattr(solve_args, 'max_time', args.max_time)
     setattr(solve_args, 'solve_path', solve_path)
     setattr(solve_args, 'verify_only', args.verify_only)
-    solve(solver, domain, best_model_filename, solve_args)
 
-    # cleanup
-    if tmp_folder != None:
-        n = len(str(domain))
-        if str(domain) == str(solve_path)[:n]:
-            logger.warning(f'Temporary folder {domain} not removed because results are stored there')
-        else:
-            rm_tree(tmp_folder, logger)
-            logger.info(f'Temporary folder {tmp_folder} removed')
-    logger.info(f'Results stored in {solve_path}')
+    try:
+        solve(solver, domain, best_model_filename, solve_args)
+    except KeyboardInterrupt:
+        logger.warning(colored('Process INTERRUPTED by keyboard (ctrl-C)!', 'red'))
+        pass
+    finally:
+        # cleanup
+        if tmp_folder != None:
+            n = len(str(domain))
+            if str(domain) == str(solve_path)[:n]:
+                logger.warning(f'Temporary folder {domain} not removed because results are stored there')
+            else:
+                rm_tree(tmp_folder, logger)
+                logger.info(f'Temporary folder {tmp_folder} removed')
+        logger.info(f'Results stored in {solve_path}')
 
