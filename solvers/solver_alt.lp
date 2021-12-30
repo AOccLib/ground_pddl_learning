@@ -487,13 +487,19 @@ diff_fnext(I,A,K,S1,S2,S3) :- relevant(I,S1), tlabel(I,(S1,S2),A), tlabel(I,(S1,
 % 3. Check application of applicable ground actions
 
 :- a_arity(A,2), fappl(I,A,(1,2),(O1,O2),S1),
-   not fnext(I,2,O2,S1,S2) : tlabel(I,(S1,S2),A), fnext(I,1,O1,S1,S2).
+   not fnext(I,2,O2,S1,S2) : fnext(I,1,O1,S1,S2).
 
 :- a_arity(A,3), fappl(I,A,(1,2),(O1,O2),S1), fappl(I,A,(1,3),(O1,O3),S1), fappl(I,A,(2,3),(O2,O3),S1),
-   not fnext(I,3,O3,S1,S2) : tlabel(I,(S1,S2),A), fnext(I,1,O1,S1,S2), fnext(I,2,O2,S1,S2).
+   not fnext(I,2,O2,S1,S2) : fnext(I,1,O1,S1,S2).
+:- a_arity(A,3), fappl(I,A,(1,2),(O1,O2),S1), fappl(I,A,(1,3),(O1,O3),S1), fappl(I,A,(2,3),(O2,O3),S1),
+   not fnext(I,3,O3,S1,S2) : fnext(I,1,O1,S1,S2), fnext(I,2,O2,S1,S2).
 
 :- a_arity(A,4), fappl(I,A,(1,2),(O1,O2),S1), fappl(I,A,(1,3),(O1,O3),S1), fappl(I,A,(1,4),(O1,O4),S1), fappl(I,A,(2,3),(O2,O3),S1), fappl(I,A,(2,4),(O2,O4),S1), fappl(I,A,(3,4),(O3,O4),S1),
-   not fnext(I,4,O4,S1,S2) : tlabel(I,(S1,S2),A), fnext(I,1,O1,S1,S2), fnext(I,2,O2,S1,S2), fnext(I,3,O3,S1,S2).
+   not fnext(I,2,O2,S1,S2) : fnext(I,1,O1,S1,S2).
+:- a_arity(A,4), fappl(I,A,(1,2),(O1,O2),S1), fappl(I,A,(1,3),(O1,O3),S1), fappl(I,A,(1,4),(O1,O4),S1), fappl(I,A,(2,3),(O2,O3),S1), fappl(I,A,(2,4),(O2,O4),S1), fappl(I,A,(3,4),(O3,O4),S1),
+   not fnext(I,3,O3,S1,S2) : fnext(I,1,O1,S1,S2), fnext(I,2,O2,S1,S2).
+:- a_arity(A,4), fappl(I,A,(1,2),(O1,O2),S1), fappl(I,A,(1,3),(O1,O3),S1), fappl(I,A,(1,4),(O1,O4),S1), fappl(I,A,(2,3),(O2,O3),S1), fappl(I,A,(2,4),(O2,O4),S1), fappl(I,A,(3,4),(O3,O4),S1),
+   not fnext(I,4,O4,S1,S2) : fnext(I,1,O1,S1,S2), fnext(I,2,O2,S1,S2), fnext(I,3,O3,S1,S2).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
