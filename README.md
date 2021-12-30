@@ -54,13 +54,13 @@ Incremental learning of grounded PDDL models.
 
 positional arguments:
   solver                solver (.lp file)
-  domain                path to domain folder (it can be a .zip file)
+  domain                path to domain's folder (it can be a .zip file)
 
 optional arguments:
   -h, --help            show this help message and exit
   --aws-instance AWS_INSTANCE
-                        describe AWS instance (boolean, default=true)
-  --continue            continue with already started synthesis process
+                        describe AWS instance (boolean, default=False)
+  --continue            continue an interrupted learning process
   --debug-level DEBUG_LEVEL
                         set debug level (default=0)
   --max-action-arity MAX_ACTION_ARITY
@@ -70,7 +70,7 @@ optional arguments:
                         default=10
   --max-num-predicates MAX_NUM_PREDICATES
                         set maximum number selected predicates (default=12)
-  --max-time MAX_TIME   max-time for Clingo solver (0=no limit, default=57600
+  --max-time MAX_TIME   max-time for Clingo solver (0=no limit, default=57600)
   --results RESULTS     folder to store results (default=graphs's folder)
   --verify-only         verify best model found over test set
 ```
