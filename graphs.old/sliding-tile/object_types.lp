@@ -1,2 +1,0 @@
-pred(tile).
-pred(opencell).
