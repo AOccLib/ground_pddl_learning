@@ -29,7 +29,7 @@ Once decompressed, a domain folder is as follows:
         └── test                                 # folder containing test instances, typically it contains all graphs for the domain
 ```
 ### Feature generation
-The ``feature_generation`` folder contains code to generate a pool of grounding predicates (concepts and roles from description logic) represented as clingo rules, starting from some primitive O2D predicates. Currently, only pools of complexity 2 are generated (but this can easily be extended to arbitrary complexity). To run the feature generator do:
+The ``feature_generation`` folder contains code to generate a pool of grounding predicates (concepts and roles from description logic) represented as clingo rules, starting from the primitive O2D predicates. Currently, only pools of complexity 2 are generated (but this can easily be extended to arbitrary complexity). To run the feature generator do:
 ```bash
 python3 feature_generation.py <filename.lp>
 ```
