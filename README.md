@@ -35,6 +35,17 @@ python3 feature_generation.py <filename.lp>
 ```
 The output file  ``<filename.lp>`` is stored in the ``feature_generation`` folder. There are precomputed predicate pools for some experimental domains (Blocksworld, Sokoban, etc.). 
 
+### Graph generation
+The code in ``graph_generation_multi_instance.py`` generates graphs of planning instances and stores them in `lp` files. To run the graph generator do:
+```bash
+python3 graph_generation_multi_instance.py 
+-p domains/<domain>/<instance1.pddl> ... domains/<domain>/<instanceN.pddl>
+[--l DEBUG_LEVEL]
+```
+The available debug levels are `info` and `debug`. The output graph files ``<instance1.lp>``,..., ``<instanceN.lp>`` are stored in the ``graphs/<domain>_GEN`` folder. 
+
+Clyngor, Pyperplan and Pandas are needed to run the graph generator.
+
 ### Solvers
 The folder ``solvers/`` contains different .lp solvers. The default solver is ``solvers/solver.lp``.
 
