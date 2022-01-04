@@ -258,7 +258,7 @@ def main():
         logging.info(f"{edge_count} Edges recorded")
         if not transitions[i]:
             to_remove.append(problems[i].domain.name)
-        graph_file = f"graphs/{problems[i].domain.name}_TEST/{problems[i].name}.lp"
+        graph_file = f"graphs/{problems[i].domain.name}_GEN/{problems[i].name}.lp"
         graph_files[i] = graph_file
         os.makedirs(os.path.dirname(graph_file), exist_ok=True)
         with open(graph_file, "w") as f:
