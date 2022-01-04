@@ -3,7 +3,7 @@ This folder contains code to generate a pool of grounding predicates (concepts a
 ```bash
 python3 feature_generation.py <filename.lp>
 ```
-The output file  ``<filename.lp>`` is stored in the ``feature_generation``. There are precomputed predicate pools for some experimental domains (Blocksworld, Sokoban, etc.). 
+The output file  ``<filename.lp>`` is stored in the ``feature_generation`` folder. There are precomputed predicate pools for some experimental domains (Blocksworld, Sokoban, etc.). 
 
 ### Caveats
 Currently, only pools of complexity 2 are generated (but this can easily be extended to arbitrary complexity).
