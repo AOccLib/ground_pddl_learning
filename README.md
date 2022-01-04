@@ -33,7 +33,7 @@ The ``feature_generation`` folder contains code to generate a pool of grounding 
 ```bash
 python3 feature_generation.py <filename.lp>
 ```
-The output file  ``<filename.lp>`` is stored in the ``feature_generation``. There are precomputed predicate pools for some experimental domains (Blocksworld, Sokoban, etc.). 
+The output file  ``<filename.lp>`` is stored in the ``feature_generation`` folder. There are precomputed predicate pools for some experimental domains (Blocksworld, Sokoban, etc.). 
 
 ### Solvers
 The folder ``solvers/`` contains different .lp solvers. The default solver is ``solvers/solver.lp``.
