@@ -28,8 +28,12 @@ Once decompressed, a domain folder is as follows:
         ├── train                                # folder containing training instances, typically it only contains object_types.lp
         └── test                                 # folder containing test instances, typically it contains all graphs for the domain
 ```
-### Feature definitions
-The ``features.lp`` file defines the members of the feature pool (concepts and roles from description logic) via clingo rules. (Subset definitions not included, these were computed elsewhere).
+### Feature generation
+The ``feature_generation`` folder contains code to generate a pool of grounding predicates (concepts and roles from description logic) represented as clingo rules, starting from some primitive O2D predicates. Currently, only pools of complexity 2 are generated (but this can easily be extended to arbitrary complexity). To run the feature generator do:
+```bash
+python3 feature_generation.py <filename.lp>
+```
+The output file  ``<filename.lp>`` is stored in the ``feature_generation``. There are precomputed predicate pools for some experimental domains (Blocksworld, Sokoban, etc.). 
 
 ### Solvers
 The folder ``solvers/`` contains different .lp solvers. The default solver is ``solvers/solver.lp``.
