@@ -163,6 +163,9 @@ def solve(solver : Path, domain : Path, best_model_filename : Path, solve_args :
         if best_model_filename.is_file():
             logger.info(f'Model found in {best_model_filename}')
             lifted_model = parse_lifted_model(best_model_filename, logger)
+            if solve_args.ignore_constants and len(lifted_model['constants']) > 0:
+                logger.info(f"Ignoring constants {lifted_model['constants']} in model")
+                lifted_model['constants'] = set()
 
             test_files = sort_lp_files_by_size(get_lp_files(test_path, [ '.*_caused.lp' ]))
             verify_times = []
@@ -388,6 +391,8 @@ def parse_graph_file(filename : Path, logger) -> List[dict]:
                 distilled['feature'][feature] = arity
             else:
                 assert distilled['feature'][feature] == arity
+        elif line[:9] == 'constant(' and line[-1] == '.':
+            pass
         else:
             logger.warning(f'Unrecognized line |{line}|')
     return distilled
@@ -701,6 +706,7 @@ if __name__ == '__main__':
     parser.add_argument('--aws-instance', dest='aws_instance', type=lambda x:bool(strtobool(x)), default=default_aws_instance, help=f'describe AWS instance (boolean, default={default_aws_instance})')
     parser.add_argument('--continue', dest='continue_solve', action='store_true', help='continue an interrupted learning process')
     parser.add_argument('--debug-level', dest='debug_level', type=int, default=default_debug_level, help=f'set debug level (default={default_debug_level})')
+    parser.add_argument('--ignore-constants', dest='ignore_constants', action='store_true', help='ignore constant semantics for objects of type constant')
     parser.add_argument('--max-action-arity', dest='max_action_arity', type=int, default=default_max_action_arity, help=f'set maximum action arity for schemas (default={default_max_action_arity})')
     parser.add_argument('--max-nodes-per-iteration', dest='max_nodes_per_iteration', type=int, default=default_max_nodes_per_iteration, help=f'max number of nodes added per iteration (0=all, default={default_max_nodes_per_iteration}')
     parser.add_argument('--max-num-predicates', dest='max_num_predicates', type=int, default=default_max_num_predicates, help=f'set maximum number selected predicates (default={default_max_num_predicates})')
@@ -761,6 +767,7 @@ if __name__ == '__main__':
     logger = get_logger('solve', log_file, log_level)
 
     solve_args = SolveArgs()
+    setattr(solve_args, 'ignore_constants', args.ignore_constants)
     setattr(solve_args, 'max_action_arity', args.max_action_arity)
     setattr(solve_args, 'max_nodes_per_iteration', args.max_nodes_per_iteration)
     setattr(solve_args, 'max_num_predicates', args.max_num_predicates)
