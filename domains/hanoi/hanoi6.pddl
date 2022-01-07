@@ -1,5 +1,5 @@
 (define (problem hanoi-6)
-  (:domain hanoi-domain)
+  (:domain hanoi)
   (:objects p1 p2 p3 d1 d2 d3 d4 d5 d6 )
   (:init 
     (peg p1) (peg p2) (peg p3)

@@ -8,7 +8,7 @@
   (:action unlock_from_below
     :parameters (?curpos ?lockpos ?key ?shape)
     :precondition (and (place ?curpos) (place ?lockpos) (key ?key)
-		       (objshape ?shape) (below ?curpos ?lockpos)
+    (below ?curpos ?lockpos)
 		       (key_shape ?key ?shape) (lock_shape ?lockpos ?shape)
 		       (at_robot ?curpos) (locked ?lockpos) (holding ?key))
     :effect (and (open ?lockpos) (not (locked ?lockpos))))
@@ -16,7 +16,7 @@
   (:action unlock_from_above
     :parameters (?curpos ?lockpos ?key ?shape)
     :precondition (and (place ?curpos) (place ?lockpos) (key ?key)
-		       (objshape ?shape) (below ?lockpos ?curpos)
+    (below ?lockpos ?curpos)
 		       (key_shape ?key ?shape) (lock_shape ?lockpos ?shape)
 		       (at_robot ?curpos) (locked ?lockpos) (holding ?key))
     :effect (and (open ?lockpos) (not (locked ?lockpos))))
@@ -24,7 +24,7 @@
   (:action unlock_from_left
     :parameters (?curpos ?lockpos ?key ?shape)
     :precondition (and (place ?curpos) (place ?lockpos) (key ?key)
-		       (objshape ?shape) (left ?curpos ?lockpos)
+		       (left ?curpos ?lockpos)
 		       (key_shape ?key ?shape) (lock_shape ?lockpos ?shape)
 		       (at_robot ?curpos) (locked ?lockpos) (holding ?key))
     :effect (and (open ?lockpos) (not (locked ?lockpos))))
@@ -32,7 +32,7 @@
   (:action unlock_from_right
     :parameters (?curpos ?lockpos ?key ?shape)
     :precondition (and (place ?curpos) (place ?lockpos) (key ?key)
-		       (objshape ?shape) (left ?lockpos ?curpos)
+		       (left ?lockpos ?curpos)
 		       (key_shape ?key ?shape) (lock_shape ?lockpos ?shape)
 		       (at_robot ?curpos) (locked ?lockpos) (holding ?key))
     :effect (and (open ?lockpos) (not (locked ?lockpos))))
@@ -40,7 +40,7 @@
   (:action move_left
     :parameters (?curpos ?nextpos)
     :precondition (and (place ?curpos) (place ?nextpos) (at_robot ?curpos)
-		       (left ?curpos ?nextpos) (open ?nextpos))
+		       (left ?nextpos ?curpos) (open ?nextpos))
     :effect (and (at_robot ?nextpos) (not (at_robot ?curpos))))
 
   (:action move_right

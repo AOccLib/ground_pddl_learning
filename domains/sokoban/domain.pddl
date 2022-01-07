@@ -1,17 +1,17 @@
 (define (domain sokoban)
 	(:requirements :strips)
-	(:predicates (sokoban ?x)   								;sokoban is at location x
-				 (crate ?x)     								;crate is at location x
-				 (leftOf ?x ?y) 								;location x is to the left of locaiton y
+	(:predicates (sokoban ?x)   								;x is sokoban
+				 (crate ?x)     								;x is crate
+				 (left ?x ?y) 								;location x is to the left of location y
 				 (below ?x ?y)  								;location x is below location y
 				 (at ?x ?y)     								;object x is at location y
-				 (clear ?x))									;x is a location
+				 (clear ?x))									;x is a clear location
 
 	(:action moveLeft
 		:parameters (?sokoban ?x ?y)
 		:precondition (and (sokoban ?sokoban)
 						   (at ?sokoban ?x)
-						   (leftOf ?y ?x)   					;location y is to the left of location x
+						   (left ?y ?x)   					;location y is to the left of location x
 						   (clear ?y))      					;and y is empty/clear, so move left to y
 		:effect (and (at ?sokoban ?y) (clear ?x)
 				(not (at ?sokoban ?x)) (not (clear ?y))))
@@ -20,7 +20,7 @@
 		:parameters (?sokoban ?x ?y)
 		:precondition (and (sokoban ?sokoban)
 							(at ?sokoban ?x)
-							(leftOf ?x ?y)    					;location x is to the left of y
+							(left ?x ?y)    					;location x is to the left of y
 							(clear ?y))       					;and y is clear, so move right to y
 		:effect (and (at ?sokoban ?y) (clear ?x)
 				(not (at ?sokoban ?x)) (not (clear ?y))))
@@ -47,12 +47,13 @@
 		:parameters (?sokoban ?x ?y ?z ?crate)
 		:precondition (and (sokoban ?sokoban)
 							(crate ?crate)
-							(leftOf ?y ?x)  					;location y is left of x
-							(leftOf ?z ?y)    					;z (destination for block) is left of where the block currently is
+							(left ?y ?x)  					;location y is left of x
+							(left ?z ?y)    					;z (destination for block) is left of where the block currently is
 							(at ?sokoban ?x)   					;sokoban player is at x
 							(at ?crate ?y)     					;crate is at y
 							(clear ?z))        					;and location z is clear, so push crate left to z
-		:effect (and (at ?sokoban ?y) (at ?crate ?z)
+		:effect (and (at ?sokoban ?y)
+		        (at ?crate ?z)
 				(clear ?x)
 				(not (at ?sokoban ?x))
 				(not (at ?crate ?y))
@@ -63,12 +64,13 @@
 		:parameters (?sokoban ?x ?y ?z ?crate)
 		:precondition (and (sokoban ?sokoban)
 							(crate ?crate)
-							(leftOf ?x ?y)						;x is left of y
-							(leftOf ?y ?z)						;y is left of z
+							(left ?x ?y)						;x is left of y
+							(left ?y ?z)						;y is left of z
 							(at ?sokoban ?x)					;sokoban is at x
 							(at ?crate ?y)						;crate is at y
 							(clear ?z))							;z is clear, so push crate right to z
-		:effect (and (at ?sokoban ?y) (at ?crate ?z)
+		:effect (and (at ?sokoban ?y)
+		        (at ?crate ?z)
 				(clear ?x)
 				(not (at ?sokoban ?x))
 				(not (at ?crate ?y))

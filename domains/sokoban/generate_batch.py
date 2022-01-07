@@ -13,7 +13,7 @@ for param_vector in parameter_product:
     x = param_vector[0]
     y = param_vector[1]
     boxes = param_vector[2]
-    cmd = [f"python /Users/aocc/Documents/repositories/batch-pddl-generator/pddl-generators/sokomine/generate.py {x} {y} --boxes {boxes}"]
+    cmd = [f"python domains/sokoban/generate.py {x} {y} --boxes {boxes}"]
 
     command_process = subprocess.Popen(
     cmd,

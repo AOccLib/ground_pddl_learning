@@ -62,6 +62,7 @@ def main():
     box_positions = random.sample([p for p in positions], k=args.boxes)
     open_positions = [p for p in positions if p not in box_positions]
     robot_pos = random.choice(open_positions)
+    #open_positions.remove(robot_pos)
 
     instance_name = f"sokoban-{args.x}rows-{args.y}cols-{args.boxes}boxes"
     nodes = [pos_name(p) for p in positions]
@@ -97,12 +98,12 @@ def main():
 
     box_at_facts = [f"(at {boxes[k]} {pos_name(box_positions[k])})" for k in range(args.boxes)]
 
-    at_robot_fact = f"(at {pos_name(robot_pos)})"
+    at_robot_fact = f"(at sokoban1 {pos_name(robot_pos)})"
 
     goal_facts = [at_robot_fact]
 
     pddl_string =f"""(define (problem {instance_name})
-    (:domain sokoban-untyped)
+    (:domain sokoban)
     (:objects
     {" ".join(nodes)}
     {" ".join(boxes)}
