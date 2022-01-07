@@ -77,7 +77,7 @@ class FalsumRole(Role):
     def complexity(self):
         return 0
     def __str__(self):
-        return 'falsum'
+        return 'falsum_role'
     def denotation(self, state : O2DState):
         return set()
 
@@ -149,7 +149,7 @@ class ConjunctiveRole(Role):
     def complexity(self):
         return 1 + sum([ c.complexity() for c in self.role_set ])
     def __str__(self):
-        return f'inter_lp_{"_".join([ str(c) for c in self.role_set ])}_rp'
+        return f'inter_lp_{"_sep_".join([ str(c) for c in self.role_set ])}_rp'
     def denotation(self, state : O2DState):
         denotations = [ c.denotation(state) for c in self.role_set ]
         return set.intersection(*denotations)
@@ -203,7 +203,7 @@ class VerumConcept(Concept):
     def __str__(self):
         return 'verum'
     def denotation(self, state : O2DState):
-        return set([ (obj,) for obj in state.objects ]) # CHECK: build this into state so that just a ref is copied here!
+        return state.objects
 
 # Primitive concepts are O2D concepts
 class O2DConcept(Concept):
@@ -216,11 +216,13 @@ class O2DConcept(Concept):
         return str(self.concept)
     def denotation(self, state : O2DState):
         try:
-            denotations = state.denotations[self.concept]
+            state_denotation = state.denotations[self.concept]
+            if state_denotation and len(next(iter(state_denotation))) != 1:
+                raise ValueError(f'Unexpected O2DConcept denotation: concept={self}/{state_denotation}')
         except KeyError:
-            logger.error(f"Key concept='{self.concept}' not found in O2DState {state.denotations}")
+            logger.error(f"Key concept='{self.concept}' not found in O2DState {state_denotation}")
             exit(1)
-        return set(denotations)
+        return set([ obj for (obj,) in state_denotation ])
 
 class NegatedConcept(Concept):
     def __init__(self, concept : Concept):
@@ -234,7 +236,7 @@ class NegatedConcept(Concept):
         return f'not_lp_{self.concept}_rp'
     def denotation(self, state : O2DState):
         subset = self.concept.denotation(state)
-        return set([ (obj,) for obj in state.objects if obj not in subset ])
+        return set([ obj for obj in state.objects if obj not in subset ])
 
 class ConjunctiveConcept(Concept):
     def __init__(self, concept1 : Concept, concept2 : Concept):
@@ -256,7 +258,7 @@ class ConjunctiveConcept(Concept):
     def complexity(self):
         return 1 + sum([ c.complexity() for c in self.concept_set ])
     def __str__(self):
-        return f'inter_lp_{"_".join([ str(c) for c in self.concept_set ])}_rp'
+        return f'inter_lp_{"_sep_".join([ str(c) for c in self.concept_set ])}_rp'
     def denotation(self, state : O2DState):
         denotations = [ c.denotation(state) for c in self.concept_set ]
         return set.intersection(*denotations)
@@ -296,7 +298,7 @@ class ERConcept(Concept):
     def complexity(self):
         return 1 + self.role.complexity() + self.concept.complexity()
     def __str__(self):
-        return f'er_lp_{self.role}_{self.concept}_rp'
+        return f'er_lp_{self.role}_sep_{self.concept}_rp'
     def denotation(self, state : O2DState):
         # E[R.C] = { x : there is y such that R(x,y) and C(y) }
         role = self.role.denotation(state)
@@ -308,7 +310,8 @@ class ERConcept(Concept):
 # - unary predicates: C(x) for concept C
 # - binary predicates: R(x,y) for role R
 class Predicate(object):
-    def __init__(self):
+    def __init__(self, arity):
+        self.arity = arity
         self.denotations = None
     def complexity(self):
         raise NotImplementedError('Predicate class is abstract')
@@ -334,7 +337,7 @@ class Predicate(object):
 
 class NullaryPredicate(Predicate):
     def __init__(self, concept1 : Concept, concept2 : Concept):
-        super().__init__()
+        super().__init__(0)
         self.concept1 = concept1
         self.concept2 = concept2
     def complexity(self):
@@ -360,7 +363,7 @@ class NullaryPredicate(Predicate):
 
 class UnaryPredicate(Predicate):
     def __init__(self, concept : Concept):
-        super().__init__()
+        super().__init__(1)
         self.concept = concept
     def complexity(self):
         return self.concept.complexity()
@@ -372,13 +375,13 @@ class UnaryPredicate(Predicate):
     def set_denotations(self, states : List[O2DState]):
         if self.denotations == None:
             self.concept.set_denotations(states)
-            self.denotations = self.concept.denotations
+            self.denotations = list(map(lambda x: set([ (obj,) for obj in x ]), self.concept.denotations))
     def clear_denotations(self):
         self.denotations = None
 
 class BinaryPredicate(Predicate):
     def __init__(self, role : Role):
-        super().__init__()
+        super().__init__(2)
         self.role = role
     def complexity(self):
         return self.role.complexity()
@@ -430,10 +433,11 @@ def generate_roles(primitive : List[Role], states : List[O2DState], complexity_b
         r.set_denotations(states)
         i, j = subsumed(r, [ new_roles ])
         if i == -1:
+            logger.debug(colored(f'+++ New role {r}/{r.complexity()}', 'magenta'))
             new_roles.append(r)
             role_names.add(str(r))
         else:
-            logger.debug(f'Role {r} ({r.complexity()}) subsumed by {new_roles[j]}')
+            logger.debug(f'Role {r}/{r.complexity()} subsumed by {new_roles[j]}/{new_roles[j].complexity()}')
             discarded.append(r)
 
     iteration = 0
@@ -450,30 +454,30 @@ def generate_roles(primitive : List[Role], states : List[O2DState], complexity_b
                     ext_roles = [ fresh_roles, new_roles, roles ]
                     i, j = subsumed(r, ext_roles)
                     if i == -1:
-                        logger.debug(colored(f'+++ New role {r} with complexity {r.complexity()}', 'magenta'))
+                        logger.debug(colored(f'+++ New role {r}/{r.complexity()}', 'magenta'))
                         fresh_roles.append(r)
                         role_names.add(str(r))
                     else:
-                        logger.debug(f'Role {r} ({r.complexity()}) subsumed by {ext_roles[i][j]}')
+                        logger.debug(f'Role {r}/{r.complexity()} subsumed by {ext_roles[i][j]}/{ext_roles[i][j].complexity()}')
                         discarded.append(r)
 
         # roles that require two roles but at least one role must be in new_roles
-        indices = set(range(len(roles)))
+        new_indices = set(range(len(new_roles)))
         roles.extend(new_roles)
         role_names.union(set([ str(c) for c in new_roles ]))
         for pair in product(range(len(roles)), repeat=2):
-            if pair[0] not in indices or pair[1] not in indices:
+            if pair[0] in new_indices or pair[1] in new_indices:
                 for r in roles_for_pair(pair, roles, ctors):
                     if r.complexity() <= complexity_bound and str(r) not in role_names:
                         r.set_denotations(states)
                         ext_roles = [ fresh_roles, new_roles, roles ]
                         i, j = subsumed(r, ext_roles)
                         if i == -1:
-                            logger.debug(colored(f'+++ New role {r} with complexity {r.complexity()}', 'magenta'))
+                            logger.debug(colored(f'+++ New role {r}/{r.complexity()}', 'magenta'))
                             fresh_roles.append(r)
                             role_names.add(str(r))
                         else:
-                            logger.debug(f'Role {r} ({r.complexity()}) subsumed by {ext_roles[i][j]}')
+                            logger.debug(f'Role {r}/{r.complexity()} subsumed by {ext_roles[i][j]}/{ext_roles[i][j].complexity()}')
                             discarded.append(r)
 
         new_roles = fresh_roles
@@ -527,10 +531,11 @@ def generate_concepts(primitive : List[Concept], roles : List[Role], states : Li
         c.set_denotations(states)
         i, j = subsumed(c, [ new_concepts ])
         if i == -1:
+            logger.debug(colored(f'+++ New concept {c}/{c.complexity()}', 'green'))
             new_concepts.append(c)
             concept_names.add(str(c))
         else:
-            logger.info(f'Concept {c} ({c.complexity()}) subsumed by {new_concepts[j]}')
+            logger.debug(f'Concept {c}/{c.complexity()} subsumed by {new_concepts[j]}/{new_concepts[j].complexity()}')
             discarded.append(c)
 
     iteration = 0
@@ -541,49 +546,36 @@ def generate_concepts(primitive : List[Concept], roles : List[Role], states : Li
 
         # concepts defined by single concept in new_concepts
         for concept in new_concepts:
-            for c in concepts_with_roles(ctors, concept, roles):
+            for c in concepts_unary(concept, ctors) + concepts_with_roles(ctors, concept, roles):
                 if c.complexity() <= complexity_bound and str(c) not in concept_names:
                     c.set_denotations(states)
                     ext_concepts = [ fresh_concepts, new_concepts, concepts ]
                     i, j = subsumed(c, ext_concepts)
                     if i == -1:
-                        logger.debug(colored(f'+++ New concept {c} with complexity {c.complexity()}', 'green'))
+                        logger.debug(colored(f'+++ New concept {c}/{c.complexity()}', 'green'))
                         fresh_concepts.append(c)
                         concept_names.add(str(c))
                     else:
-                        logger.info(f'Concept {c} ({c.complexity()}) subsumed by {ext_concepts[i][j]}')
-                        discarded.append(c)
-
-            for c in concepts_unary(concept, ctors):
-                if c.complexity() <= complexity_bound and str(c) not in concept_names:
-                    c.set_denotations(states)
-                    ext_concepts = [ fresh_concepts, new_concepts, concepts ]
-                    i, j = subsumed(c, ext_concepts)
-                    if i == -1:
-                        logger.debug(colored(f'+++ New concept {c} with complexity {c.complexity()}', 'green'))
-                        fresh_concepts.append(c)
-                        concept_names.add(str(c))
-                    else:
-                        logger.info(f'Concept {c} ({c.complexity()}) subsumed by {ext_concepts[i][j]}')
+                        logger.debug(f'Concept {c}/{c.complexity()} subsumed by {ext_concepts[i][j]}/{ext_concepts[i][j].complexity()}')
                         discarded.append(c)
 
         # concepts that require two concepts but at least one concept must be in new_concepts
-        indices = set(range(len(concepts)))
+        new_indices = set(range(len(new_concepts)))
         concepts.extend(new_concepts)
         concept_names.union(set([ str(c) for c in new_concepts ]))
         for pair in product(range(len(concepts)), repeat=2):
-            if pair[0] not in indices or pair[1] not in indices:
+            if pair[0] != pair[1] and (pair[0] in new_indices or pair[1] in new_indices):
                 for c in concepts_for_pair(pair, concepts, ctors):
                     if c.complexity() <= complexity_bound and str(c) not in concept_names:
                         c.set_denotations(states)
                         ext_concepts = [ fresh_concepts, concepts ]
                         i, j = subsumed(c, ext_concepts)
                         if i == -1:
-                            logger.debug(colored(f'+++ New concept {c} with complexity {c.complexity()}', 'green'))
+                            logger.debug(colored(f'+++ New concept {c}/{c.complexity()}', 'green'))
                             fresh_concepts.append(c)
                             concept_names.add(str(c))
                         else:
-                            logger.info(f'Concept {c} ({c.complexity()}) subsumed by {ext_concepts[i][j]}')
+                            logger.debug(f'Concept {c}/{c.complexity()} subsumed by {ext_concepts[i][j]}/{ext_concepts[i][j].complexity()}')
                             discarded.append(c)
 
         new_concepts = fresh_concepts
@@ -598,14 +590,19 @@ def generate_predicates(states : List[O2DState], options : Options):
 
     # Roles
     role_ctors = [ ('Role', 'None', InverseRole), ('Role', 'Role', CompositionRole) ]
-    primitive_roles = [ O2DRole(name) for name in primitive_role_names() ]
+    primitive_roles = [ FalsumRole() ]
+    primitive_roles.extend([ O2DRole(name) for name in primitive_role_names() ])
     roles = generate_roles(primitive_roles, states, max_complexity, role_ctors)
+    for i, r in enumerate(roles):
+        logger.debug(f'Role r{i}.{r}/{r.complexity()}')
 
     # Concepts
     concept_ctors = [ ('Concept', 'None', NegatedConcept), ('Concept', 'Concept', ConjunctiveConcept), ('Role', 'Concept', ERConcept) ]
     primitive_concepts = [ FalsumConcept(), VerumConcept() ]
     primitive_concepts.extend([ O2DConcept(name) for name in primitive_concept_names() ])
     concepts = generate_concepts(primitive_concepts, roles, states, max_complexity, concept_ctors)
+    for i, c in enumerate(concepts):
+        logger.debug(f'Concept c{i}.{c}/{c.complexity()}')
 
     # Predicates:
     # - nullary predicates: (C \subseteq C') for concepts C and C'
@@ -614,16 +611,16 @@ def generate_predicates(states : List[O2DState], options : Options):
     predicates = []
 
     # nullary predicates
-    for p in product(range(len(concepts)), repeat=2):
-        c1, c2 = concepts[p[0]], concepts[p[1]]
+    for pair in product(range(len(concepts)), repeat=2):
+        c1, c2 = concepts[pair[0]], concepts[pair[1]]
         if type(c1) != FalsumConcept and type(c2) != VerumConcept and c1 != c2:
             p = NullaryPredicate(c1, c2)
             if p.complexity() <= max_complexity:
                 p.set_denotations(states)
                 if not p.is_constant(): # CHECK: is it safe to remove nullary predicates in this way?
-                    predicates.append((p, 0))
+                    predicates.append(p)
                 else:
-                    logger.debug(f'Predicate {p} is constant; pruned')
+                    logger.debug(f'Predicate {p}/{p.arity} is constant; pruned')
 
     # unary predicates
     for c in concepts:
@@ -631,19 +628,22 @@ def generate_predicates(states : List[O2DState], options : Options):
             p = UnaryPredicate(c)
             p.set_denotations(states)
             if True or not p.is_constant(): # CHECK: cannot prune using this condition since all static info dissapears (subsumption)
-                predicates.append((p, 1))
+                predicates.append(p)
                 logger.debug(f'UnaryPredicate: {p} with complexity {p.complexity()}')
             else:
-                logger.debug(f'Predicate {p} is constant; pruned')
+                logger.debug(f'Predicate {p}/{p.arity} is constant; pruned')
 
     # binary predicates
     for r in roles:
         p = BinaryPredicate(r)
         p.set_denotations(states)
         if True or not p.is_constant(): # CHECK: cannot prune using this condition since all static info dissapears (subsumption)
-            predicates.append((p, 2))
+            predicates.append(p)
         else:
-            logger.debug(f'Predicate {p} is constant; pruned')
+            logger.debug(f'Predicate {p}/{p.arity} is constant; pruned')
+
+    for i, p in enumerate(predicates):
+        logger.debug(f'Predicate p{i}.{p}/{p.arity}')
 
     return roles, concepts, predicates
 
@@ -678,7 +678,7 @@ def apply_rule(ext_state : dict, pred, head, body):
                     break
                 logger.debug(f'match: key={key}, arg={arg}, vars={body_vars[i]}, assignment={assignment}')
 
-        # if trigger, add atom
+        # if trigger, add atom in head
         if trigger:
             atom_args = tuple([ next(iter(assignment[var])) if var.isupper() else var for var in head_vars ])
             if atom_args not in ext_state[pred] and len(set(atom_args)) == len(head_vars): # CHECK: avoid repeated args?
@@ -770,6 +770,7 @@ def get_o2d_states(problems, transitions : List[list], symb2spatial : dict, focu
         for (src, action, dst) in transitions[i]:
             for state in [src, dst]:
                 if state not in seen_states:
+                    assert state not in states_dict
                     states_dict[i][state] = len(states)
                     seen_states.add(state)
                     states.append(state)
@@ -782,7 +783,7 @@ def get_o2d_states(problems, transitions : List[list], symb2spatial : dict, focu
 
 # Planner for calculating reachable states
 def get_PDDL_files(path : Path):
-    files = [ fname for fname in path.iterdir() if fname.is_file() and fname.name[-5:] == '.pddl' ]
+    files = sorted([ fname for fname in path.iterdir() if fname.is_file() and fname.name[-5:] == '.pddl' ])
     domain_filenames = [ fname for fname in files if fname.name == 'domain.pddl' ]
     problem_filenames = [ fname for fname in files if fname.name != 'domain.pddl' ]
     assert len(domain_filenames) == 1
@@ -826,13 +827,15 @@ def write_graph_file(predicates : list, slice_desc : tuple, instance : int, stat
     start_time = timer()
     written_lines = 0
     with graph_filename.open('w') as fd:
-        fd.write(f"% Problem {graph_filename.with_suffix('.pddl')}: {len(o2d_states)} node(s) and {len(transitions)} edge(s)\n")
+        fd.write(f"% Problem {graph_filename.with_suffix('.pddl')}: {len(o2d_states)} node(s) and {len(transitions)} edge(s) [inst={instance}, slice={slice_desc}]\n")
         fd.write(f'instance({instance}).\n')
         logger.debug(f"% Problem {graph_filename.with_suffix('.pddl')}: {len(o2d_states)} node(s) and {len(transitions)} edge(s)")
         logger.debug(f'instance({instance}).')
         written_lines += 2
 
         # transitions
+        fd.write('% Transitions\n')
+        written_lines += 1
         for (src, action, dst) in transitions:
             src_index = states_dict[src] - slice_desc[0]
             dst_index = states_dict[dst] - slice_desc[0]
@@ -842,6 +845,8 @@ def write_graph_file(predicates : list, slice_desc : tuple, instance : int, stat
             written_lines += 1
 
         # states (nodes)
+        fd.write('% Nodes\n')
+        written_lines += 1
         for state in states:
             index = states_dict[state] - slice_desc[0]
             fd.write(f'node({instance},{index}).\n')
@@ -849,18 +854,22 @@ def write_graph_file(predicates : list, slice_desc : tuple, instance : int, stat
             written_lines += 1
 
         # constants
+        fd.write('% Constants\n')
+        written_lines += 1
         for obj in symb2spatial['constants']:
             fd.write(f'constant({obj}).\n')
             written_lines += 1
 
         # features (predicates)
+        fd.write('% Features (predicates)\n')
+        written_lines += 1
         static_predicates = set()
-        for (p, arity) in predicates:
+        for p in predicates:
             fd.write(f'feature({p}).\n')
-            fd.write(f'f_arity({p},{arity}).\n')
+            fd.write(f'f_arity({p},{p.arity}).\n')
             fd.write(f'f_complexity({p},{p.complexity()}).\n')
             logger.debug(f'feature({p}).')
-            logger.debug(f'f_arity({p},{arity}).')
+            logger.debug(f'f_arity({p},{p.arity}).')
             logger.debug(f'f_complexity({p},{p.complexity()}).')
             written_lines += 3
             if p.is_constant_on_slice(slice_desc[0], slice_desc[1]):
@@ -870,40 +879,45 @@ def write_graph_file(predicates : list, slice_desc : tuple, instance : int, stat
                 written_lines += 1
 
         # valuations for static predicates
-        for (p, arity) in predicates:
+        fd.write('% Valuations for static predicates\n')
+        written_lines += 1
+        for p in predicates:
             if str(p) in static_predicates:
                 tuples = p.denotations[slice_desc[0]]
-                #logger.info(f'static: i={instance}, arity={arity}, p={p}, tuples={tuples}')
-                if arity == 0:
+                #logger.info(f'static: i={instance}, arity={p.arity}, p={p}, tuples={tuples}')
+                if p.arity == 0:
                     assert tuples in [ False, True ], tuples
                     fd.write(f'fval({instance},({p},(null,)),{1 if tuples else 0}).\n')
                     written_lines += 1
                 else:
                     for arg in tuples:
-                        assert len(arg) == arity, f'Unexpected arity: arg={arg}, arity={arity}, tuples={tuples}, p={p}'
+                        assert len(arg) == p.arity, f'Unexpected arity: arg={arg}, arity={p.arity}, tuples={tuples}, p={p}'
                         arg_str = f'({arg[0]},)' if len(arg) == 1 else f'({",".join(arg)})'
                         fd.write(f'fval({instance},({p},{arg_str}),1).\n')
                         #logger.info(f'fval({instance},({p},{arg_str}),1).')
                         written_lines += 1
 
         # valuations for dynamic predicates
+        fd.write('% Valuations for dynamic predicates\n')
+        written_lines += 1
         for i, (state, o2d_state) in enumerate(zip(states, o2d_states)):
-            index = states_dict[state] - slice_desc[0]
-            assert 0 <= index and index < slice_desc[1] - slice_desc[0], f'Unexpected index={index} outside range'
-            for (p, arity) in predicates:
+            index = states_dict[state]
+            index_normalized = index - slice_desc[0]
+            assert slice_desc[0] <= index and index < slice_desc[1], f'Unexpected index={index} outside range'
+            for p in predicates:
                 if str(p) not in static_predicates:
                     tuples = p.denotations[index]
-                    #logger.info(f'dynamic: i={instance}, arity={arity}, index={index}, p={p}, tuples={tuples}')
-                    if arity == 0:
+                    #logger.info(f'dynamic: i={instance}, index={index}/{index_normalized}, p={p}/{p.arity}, tuples={tuples}')
+                    if p.arity == 0:
                         assert tuples in [ False, True ], tuples
-                        fd.write(f'fval({instance},({p},(null,)),{index},{1 if tuples else 0}).\n')
+                        fd.write(f'fval({instance},({p},(null,)),{index_normalized},{1 if tuples else 0}).\n')
                         written_lines += 1
                     else:
                         for arg in tuples:
-                            assert len(arg) == arity, f'Unexpected arity: arg={arg}, arity={arity}'
+                            assert len(arg) == p.arity, f'Unexpected arity: arg={arg}, arity={p.arity}'
                             arg_str = f'({arg[0]},)' if len(arg) == 1 else f'({",".join(arg)})'
-                            fd.write(f'fval({instance},({p},{arg_str}),{index},1).\n')
-                            #logger.info(f'fval({instance},({p},{arg_str}),{index},1).')
+                            fd.write(f'fval({instance},({p},{arg_str}),{index_normalized},1).\n')
+                            #logger.info(f'fval({instance},({p},{arg_str}),{index_normalized},1).')
                             written_lines += 1
     elapsed_time = timer() - start_time
     logger.info(f'{graph_filename}: {written_lines} line(s) for instance {instance} [slice={slice_desc}] in {elapsed_time:.3f} second(s)')
