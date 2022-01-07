@@ -149,7 +149,7 @@ class ConjunctiveRole(Role):
     def complexity(self):
         return 1 + sum([ c.complexity() for c in self.role_set ])
     def __str__(self):
-        return f'cap_lp_{"_".join([ str(c) for c in self.role_set ])}_rp'
+        return f'inter_lp_{"_".join([ str(c) for c in self.role_set ])}_rp'
     def denotation(self, state : O2DState):
         denotations = [ c.denotation(state) for c in self.role_set ]
         return set.intersection(*denotations)
@@ -256,7 +256,7 @@ class ConjunctiveConcept(Concept):
     def complexity(self):
         return 1 + sum([ c.complexity() for c in self.concept_set ])
     def __str__(self):
-        return f'cap_lp_{"_".join([ str(c) for c in self.concept_set ])}_rp'
+        return f'inter_lp_{"_".join([ str(c) for c in self.concept_set ])}_rp'
     def denotation(self, state : O2DState):
         denotations = [ c.denotation(state) for c in self.concept_set ]
         return set.intersection(*denotations)
@@ -421,6 +421,7 @@ def roles_for_pair(pair, roles : List[Role], ctors):
 
 def generate_roles(primitive : List[Role], states : List[O2DState], complexity_bound : int, ctors):
     roles = []
+    discarded = []
     role_names = set()
 
     # add primitive roles to new_roles while pruning subsumed ones
@@ -432,12 +433,13 @@ def generate_roles(primitive : List[Role], states : List[O2DState], complexity_b
             new_roles.append(r)
             role_names.add(str(r))
         else:
-            logger.debug(f'Role {r} subsumed by {new_roles[j]}')
+            logger.debug(f'Role {r} ({r.complexity()}) subsumed by {new_roles[j]}')
+            discarded.append(r)
 
     iteration = 0
     while new_roles:
         iteration += 1
-        logger.info(colored(f'*** Roles: iter={iteration}, #new_roles={len(new_roles)}', 'magenta'))
+        logger.info(colored(f'*** Roles: iter={iteration}, #roles={len(roles)}, #subsumed={len(discarded)}, #new_roles={len(new_roles)}', 'magenta'))
         fresh_roles = []
 
         # roles defined by single role in new_roles
@@ -452,7 +454,8 @@ def generate_roles(primitive : List[Role], states : List[O2DState], complexity_b
                         fresh_roles.append(r)
                         role_names.add(str(r))
                     else:
-                        logger.debug(f'Role {r} subsumed by {ext_roles[i][j]}')
+                        logger.debug(f'Role {r} ({r.complexity()}) subsumed by {ext_roles[i][j]}')
+                        discarded.append(r)
 
         # roles that require two roles but at least one role must be in new_roles
         indices = set(range(len(roles)))
@@ -470,10 +473,12 @@ def generate_roles(primitive : List[Role], states : List[O2DState], complexity_b
                             fresh_roles.append(r)
                             role_names.add(str(r))
                         else:
-                            logger.debug(f'Role {r} subsumed by {ext_roles[i][j]}')
+                            logger.debug(f'Role {r} ({r.complexity()}) subsumed by {ext_roles[i][j]}')
+                            discarded.append(r)
 
         new_roles = fresh_roles
 
+    logger.info(colored(f'*** Roles: #roles={len(roles)}, #subsumed={len(discarded)}', 'magenta'))
     return roles
 
 # Generation of concepts
@@ -513,6 +518,7 @@ def concepts_for_pair(pair, concepts : List[Concept], ctors):
 
 def generate_concepts(primitive : List[Concept], roles : List[Role], states : List[O2DState], complexity_bound : int, ctors):
     concepts = []
+    discarded = []
     concept_names = set()
 
     # add primitive concepts to new_concepts while pruning subsumed ones
@@ -524,12 +530,13 @@ def generate_concepts(primitive : List[Concept], roles : List[Role], states : Li
             new_concepts.append(c)
             concept_names.add(str(c))
         else:
-            logger.debug(f'Concept {c} subsumed by {new_concepts[j]}')
+            logger.info(f'Concept {c} ({c.complexity()}) subsumed by {new_concepts[j]}')
+            discarded.append(c)
 
     iteration = 0
     while new_concepts:
         iteration += 1
-        logger.info(colored(f'*** Concepts: iter={iteration}, #new_concepts={len(new_concepts)}', 'green'))
+        logger.info(colored(f'*** Concepts: iter={iteration}, #concepts={len(concepts)}, #subsumed={len(discarded)}, #new_concepts={len(new_concepts)}', 'green'))
         fresh_concepts = []
 
         # concepts defined by single concept in new_concepts
@@ -544,7 +551,8 @@ def generate_concepts(primitive : List[Concept], roles : List[Role], states : Li
                         fresh_concepts.append(c)
                         concept_names.add(str(c))
                     else:
-                        logger.debug(f'Concept {c} subsumed by {ext_concepts[i][j]}')
+                        logger.info(f'Concept {c} ({c.complexity()}) subsumed by {ext_concepts[i][j]}')
+                        discarded.append(c)
 
             for c in concepts_unary(concept, ctors):
                 if c.complexity() <= complexity_bound and str(c) not in concept_names:
@@ -556,7 +564,8 @@ def generate_concepts(primitive : List[Concept], roles : List[Role], states : Li
                         fresh_concepts.append(c)
                         concept_names.add(str(c))
                     else:
-                        logger.debug(f'Concept {c} subsumed by {ext_concepts[i][j]}')
+                        logger.info(f'Concept {c} ({c.complexity()}) subsumed by {ext_concepts[i][j]}')
+                        discarded.append(c)
 
         # concepts that require two concepts but at least one concept must be in new_concepts
         indices = set(range(len(concepts)))
@@ -574,10 +583,12 @@ def generate_concepts(primitive : List[Concept], roles : List[Role], states : Li
                             fresh_concepts.append(c)
                             concept_names.add(str(c))
                         else:
-                            logger.debug(f'Concept {c} subsumed by {ext_concepts[i][j]}')
+                            logger.info(f'Concept {c} ({c.complexity()}) subsumed by {ext_concepts[i][j]}')
+                            discarded.append(c)
 
         new_concepts = fresh_concepts
 
+    logger.info(colored(f'*** Concepts: #concepts={len(concepts)}, #subsumed={len(discarded)}', 'green'))
     return concepts
 
 # Generation of predicates
