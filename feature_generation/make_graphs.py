@@ -137,7 +137,7 @@ class CompositionRole(Role):
         role1 = self.role1.denotation(state)
         role2 = self.role2.denotation(state)
         med = [ obj for (_, obj) in role1 ]
-        return set([ (x1,y2) for m in med for (x1,x2) in role1 for (y1,y2) in role2 if x2 == m and y1 == m ])
+        return set([ (x1,y2) for m in med for (x1,x2) in role1 for (y1,y2) in role2 if x2 == m and y1 == m and x1 != y2 ]) # CHECK: avoid repeated args?
 
 class ConjunctiveRole(Role):
     def __init__(self, role1 : Role, role2 : Role):
@@ -454,7 +454,7 @@ def generate_roles(primitive : List[Role], states : List[O2DState], complexity_b
                     else:
                         logger.debug(f'Role {r} subsumed by {ext_roles[i][j]}')
 
-        # roles that require two roles but at least one role in new_roles
+        # roles that require two roles but at least one role must be in new_roles
         indices = set(range(len(roles)))
         roles.extend(new_roles)
         role_names.union(set([ str(c) for c in new_roles ]))
@@ -558,7 +558,7 @@ def generate_concepts(primitive : List[Concept], roles : List[Role], states : Li
                     else:
                         logger.debug(f'Concept {c} subsumed by {ext_concepts[i][j]}')
 
-        # concepts that require two concepts but at least one concept in new_concepts
+        # concepts that require two concepts but at least one concept must be in new_concepts
         indices = set(range(len(concepts)))
         concepts.extend(new_concepts)
         concept_names.union(set([ str(c) for c in new_concepts ]))
@@ -670,7 +670,7 @@ def apply_rule(ext_state : dict, pred, head, body):
         # if trigger, add atom
         if trigger:
             atom_args = tuple([ next(iter(assignment[var])) if var.isupper() else var for var in head_vars ])
-            if atom_args not in ext_state[pred]:
+            if atom_args not in ext_state[pred] and len(set(atom_args)) == len(head_vars): # CHECK: avoid repeated args?
                 something_added = True
                 ext_state[pred].add(atom_args)
                 logger.debug(colored(f'trigger: pred={pred}, head={head}, body={body}, args={args}, assignment={assignment}, atom_args={atom_args}', 'blue'))
@@ -959,13 +959,13 @@ if __name__ == '__main__':
     logger.info(f'PDDLs: domain={domain_filename}, problems={[ str(fname) for fname in problem_filenames ]}')
     problems, tasks = get_planning_tasks(domain_filename, problem_filenames)
     elapsed_time = timer() - start_time
-    logger.info(colored(f'All parsing and grounding in {elapsed_time:.3f} second(s)', 'blue'))
+    logger.info(colored(f'{len(problems)} file(s) parsed and grounded in {elapsed_time:.3f} second(s)', 'blue'))
 
     start_time = timer()
     logger.info(colored(f'Generate transitions in PDDL files...', 'red', attrs = [ 'bold' ]))
     transitions = get_planning_transitions(problems, tasks)
     elapsed_time = timer() - start_time
-    logger.info(colored(f'All transitions generated in {elapsed_time:.3f} second(s)', 'blue'))
+    logger.info(colored(f'{sum(map(lambda x: len(x), transitions))} edge(s) in {elapsed_time:.3f} second(s)', 'blue'))
 
     # remove tasks with no transitions
     good_tasks = [ i for i in range(len(transitions)) if len(transitions[i]) > 0 ]
@@ -984,14 +984,14 @@ if __name__ == '__main__':
     focus.extend(primitive_concept_names())
     states, states_dict, o2d_states, offsets = get_o2d_states(problems, transitions, symb2spatial, focus)
     elapsed_time = timer() - start_time
-    logger.info(colored(f'{len(o2d_states)} state(s) and {sum([ len(transitions[i]) for i in range(len(transitions)) ])} edges(s) in {elapsed_time:.3f} second(s)', 'blue'))
+    logger.info(colored(f'{len(o2d_states)} state(s) in {sum(map(lambda x: len(x), transitions))} edge(s) in {elapsed_time:.3f} second(s)', 'blue'))
 
     # generate predicates
     start_time = timer()
     logger.info(colored(f'Generate predicates...', 'red', attrs = [ 'bold' ]))
     roles, concepts, predicates = generate_predicates(o2d_states, options)
     elapsed_time = timer() - start_time
-    logger.info(colored(f'(max-complexity={options.max_complexity}) {len(roles)} role(s), {len(concepts)} concept(s), and {len(predicates)} predicate(s) in {elapsed_time:.3f} second(s)', 'blue'))
+    logger.info(colored(f'[max-complexity={options.max_complexity}] {len(roles)} role(s), {len(concepts)} concept(s), and {len(predicates)} predicate(s) in {elapsed_time:.3f} second(s)', 'blue'))
 
     # Last thing is to produce .lp files
     start_time = timer()
