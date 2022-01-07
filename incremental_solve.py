@@ -638,6 +638,7 @@ def verify_instance(ground_model : dict, inst : int, logger) -> bool:
             logger.error(colored("These nodes aren't separated by any set of features", "red", attr = [ "bold" ]))
         return False, [ i, j ]
 
+    # CHECK: code below assumes nodes in instance are enumerated as 0...n-1 where n is number of nodes
     num_nodes = len(ground_model['fval'][inst]['node'])
     f_nodes = [ [] for _ in range(num_nodes) ]
     f_nodes_r = dict()
