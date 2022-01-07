@@ -29,6 +29,7 @@ def rm_tree(path : Path, logger) -> None:
 
 def get_logger(name : str, log_file : Path, level = logging.INFO):
     logger = logging.getLogger(name)
+    logger.propagate = False
     logger.setLevel(level)
 
     # add stdout handler
@@ -38,10 +39,11 @@ def get_logger(name : str, log_file : Path, level = logging.INFO):
     logger.addHandler(console)
 
     # add file handler
-    formatter = logging.Formatter('%(asctime)s [%(levelname)s] [%(funcName)s:%(lineno)d] %(message)s')
-    file_handler = logging.FileHandler(str(log_file), 'a')
-    file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
+    if log_file != '':
+        formatter = logging.Formatter('%(asctime)s [%(levelname)s] [%(funcName)s:%(lineno)d] %(message)s')
+        file_handler = logging.FileHandler(str(log_file), 'a')
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
 
     return logger
 
