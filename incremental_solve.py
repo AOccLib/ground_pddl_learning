@@ -111,15 +111,17 @@ def solve(solver : Path, domain : Path, best_model_filename : Path, solve_args :
     already_solved = dict()
 
     # setup solver command
-    max_action_arity = solve_args.max_action_arity
-    max_num_predicates = solve_args.max_num_predicates
-    solver_cmd = f'clingo -c max_action_arity={max_action_arity} -c num_predicates={max_num_predicates} --fast-exit -t 6 --sat-prepro=2 --time-limit={solve_args.max_time} --stats=0 {solver} {solve_path}/*.lp | python3 get_best_model.py {best_model_filename}'
+    solver_cmd_args = dict(max_time=solve_args.max_time, max_action_arity=solve_args.max_action_arity, max_num_predicates=solve_args.max_num_predicates, solver=solver, best_model_filename=best_model_filename)
+    solver_cmd_template = 'clingo -c max_action_arity={max_action_arity} -c num_predicates={max_num_predicates} --fast-exit -t 6 --sat-prepro=2 --time-limit={max_time} --stats=0 {solver} {files} | python3 get_best_model.py {best_model_filename}'
 
     while calculate_model:
         iterations += 1
 
         if not solve_args.verify_only:
-            files = sorted(get_lp_files(solve_path, [ '.*_caused.lp' ]))
+            files = get_lp_files(solve_path, [ '.*_caused.lp', 'best_model.lp' ])
+            files_str = ' '.join([ str(fname) for fname in files ])
+            solver_cmd = solver_cmd_template.format(files=files_str, **solver_cmd_args)
+
             logger.info(f'{colored("**** ITERATION " + str(iterations) + " ****", "red", attrs=["bold"])}')
             logger.info(f'Files={[ str(fname) for fname in files ]}')
             logger.info(f'Cmd={solver_cmd}')
@@ -390,7 +392,7 @@ def parse_graph_file(filename : Path, logger) -> List[dict]:
             if feature not in distilled['feature']:
                 distilled['feature'][feature] = arity
             else:
-                assert distilled['feature'][feature] == arity
+                assert distilled['feature'][feature] == arity, f"Arity mismatch for '{feature}': registered={distilled['feature'][feature]}, got={arity}, line=|{line}|"
         elif line[:13] == 'f_complexity(' and line[-1] == '.':
             pass
         elif line[:9] == 'constant(' and line[-1] == '.':
@@ -755,8 +757,9 @@ if __name__ == '__main__':
 
         # populate solve_path with train set
         train_path = domain / 'train'
-        for fname in train_path.iterdir():
-            file_copy(fname, solve_path)
+        if train_path.exists():
+            for fname in train_path.iterdir():
+                file_copy(fname, solve_path)
 
     # describe AWS instance
     if args.aws_instance:
