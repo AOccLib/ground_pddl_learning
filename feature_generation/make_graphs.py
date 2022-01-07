@@ -15,7 +15,8 @@ from pyperplan.src.pyperplan.search import searchspace
 from collections import deque
 
 g_primitive_role_names = [ 'left', 'below', 'overlap', 'smaller', 'shape' ] # CHECK: all?
-g_primitive_concept_names = [ 'robot', 'block', 'table', 'cell', 'lockedcell', 'sokoban', 'crate', 'key', 'peg', 'disk', 'tile' ] # CHECK: all?
+#g_primitive_concept_names = [ 'robot', 'block', 'table', 'cell', 'lockedcell', 'sokoban', 'crate', 'key', 'peg', 'disk', 'tile' ] # CHECK: all?
+g_primitive_concept_names = [ 'robot', 'block', 'table', 'cell', 'lockedcell', 'sokoban', 'crate', 'key', 'tile' ] # CHECK: all?
 
 class Options(object): pass
 
@@ -866,12 +867,17 @@ def write_graph_file(predicates : list, slice_desc : tuple, instance : int, stat
         static_predicates = set()
         for p in predicates:
             fd.write(f'feature({p}).\n')
-            fd.write(f'f_arity({p},{p.arity}).\n')
-            fd.write(f'f_complexity({p},{p.complexity()}).\n')
             logger.debug(f'feature({p}).')
+            written_lines += 1
+        for p in predicates:
+            fd.write(f'f_arity({p},{p.arity}).\n')
             logger.debug(f'f_arity({p},{p.arity}).')
+            written_lines += 1
+        for p in predicates:
+            fd.write(f'f_complexity({p},{p.complexity()}).\n')
             logger.debug(f'f_complexity({p},{p.complexity()}).')
-            written_lines += 3
+            written_lines += 1
+        for p in predicates:
             if p.is_constant_on_slice(slice_desc[0], slice_desc[1]):
                 static_predicates.add(str(p))
                 fd.write(f'f_static({instance},{p}).\n')
@@ -941,7 +947,7 @@ if __name__ == '__main__':
 
     # default values
     default_debug_level = 0
-    default_max_complexity = 3
+    default_max_complexity = 4
     default_complexity_measure = 'sum'
     default_symb2spatial = exec_path / 'registry_symb2spatial.txt'
 
