@@ -185,7 +185,7 @@ def solve(solver : Path, domain : Path, best_model_filename : Path, solve_args :
                     if not unsolved_nodes:
                         elapsed_time = timer() - start_time
                         logger.info(f'#calls={len(solver_wall_times)}, solve_wall_time={sum(solver_wall_times)}, solve_ground_time={sum(solver_ground_times)}, verify_time={sum(map(lambda batch: sum(batch), verify_times_batches))}, elapsed_time={elapsed_time}')
-                        logger.critical(f'Looping on partial.lp with nodes {unverified_nodes} from {fname.name}; already_solved={already_solved[fname.name]}')
+                        logger.critical(colored(f'Looping on partial.lp with nodes {unverified_nodes} from {fname.name}; already_solved={already_solved[fname.name]}', 'red', attrs = [ 'bold' ]))
                         exit(-1)
 
                     # copy fname to solve path, and fill in partial.lp
@@ -391,6 +391,8 @@ def parse_graph_file(filename : Path, logger) -> List[dict]:
                 distilled['feature'][feature] = arity
             else:
                 assert distilled['feature'][feature] == arity
+        elif line[:13] == 'f_complexity(' and line[-1] == '.':
+            pass
         elif line[:9] == 'constant(' and line[-1] == '.':
             pass
         else:
