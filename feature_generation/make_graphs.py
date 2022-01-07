@@ -811,7 +811,7 @@ def get_planning_transitions(problems, tasks):
     return transitions
 
 # Write graph files (.lp)
-def write_graph_file(predicates : list, slice_beg : int, slice_end : int, instance : int, states : list, states_dict : dict, transitions : list, o2d_states : List[O2DState], graph_filename : Path, symb2spatial):
+def write_graph_file(predicates : list, slice_desc : tuple, instance : int, states : list, states_dict : dict, transitions : list, o2d_states : List[O2DState], graph_filename : Path, symb2spatial):
     start_time = timer()
     written_lines = 0
     with graph_filename.open('w') as fd:
@@ -823,8 +823,8 @@ def write_graph_file(predicates : list, slice_beg : int, slice_end : int, instan
 
         # transitions
         for (src, action, dst) in transitions:
-            src_index = states_dict[src]
-            dst_index = states_dict[dst]
+            src_index = states_dict[src] - slice_desc[0]
+            dst_index = states_dict[dst] - slice_desc[0]
             label = action[1:-1].split(' ')[0]
             fd.write(f'tlabel({instance},({src_index},{dst_index}),{label}). % {action}\n')
             logger.debug(f'tlabel({instance},({src_index},{dst_index}),{label}). % {action}')
@@ -832,7 +832,7 @@ def write_graph_file(predicates : list, slice_beg : int, slice_end : int, instan
 
         # states (nodes)
         for state in states:
-            index = states_dict[state]
+            index = states_dict[state] - slice_desc[0]
             fd.write(f'node({instance},{index}).\n')
             logger.debug(f'node({instance},{index}).')
             written_lines += 1
@@ -847,10 +847,12 @@ def write_graph_file(predicates : list, slice_beg : int, slice_end : int, instan
         for (p, arity) in predicates:
             fd.write(f'feature({p}).\n')
             fd.write(f'f_arity({p},{arity}).\n')
+            fd.write(f'f_complexity({p},{p.complexity()}).\n')
             logger.debug(f'feature({p}).')
             logger.debug(f'f_arity({p},{arity}).')
-            written_lines += 2
-            if p.is_constant_on_slice(slice_beg, slice_end):
+            logger.debug(f'f_complexity({p},{p.complexity()}).')
+            written_lines += 3
+            if p.is_constant_on_slice(slice_desc[0], slice_desc[1]):
                 static_predicates.add(str(p))
                 fd.write(f'f_static({instance},{p}).\n')
                 logger.debug(f'f_static({instance},{p}).')
@@ -859,7 +861,7 @@ def write_graph_file(predicates : list, slice_beg : int, slice_end : int, instan
         # valuations for static predicates
         for (p, arity) in predicates:
             if str(p) in static_predicates:
-                tuples = p.denotations[slice_beg]
+                tuples = p.denotations[slice_desc[0]]
                 #logger.info(f'static: i={instance}, arity={arity}, p={p}, tuples={tuples}')
                 if arity == 0:
                     assert tuples in [ False, True ], tuples
@@ -875,8 +877,8 @@ def write_graph_file(predicates : list, slice_beg : int, slice_end : int, instan
 
         # valuations for dynamic predicates
         for i, (state, o2d_state) in enumerate(zip(states, o2d_states)):
-            index = states_dict[state]
-            assert slice_beg <= index and index < slice_end, f'unexpected index={index} (beg={slice_beg}, end={slice_end})'
+            index = states_dict[state] - slice_desc[0]
+            assert 0 <= index and index < slice_desc[1] - slice_desc[0], f'Unexpected index={index} outside range'
             for (p, arity) in predicates:
                 if str(p) not in static_predicates:
                     tuples = p.denotations[index]
@@ -893,7 +895,7 @@ def write_graph_file(predicates : list, slice_beg : int, slice_end : int, instan
                             #logger.info(f'fval({instance},({p},{arg_str}),{index},1).')
                             written_lines += 1
     elapsed_time = timer() - start_time
-    logger.info(f'{graph_filename}: {written_lines} line(s) for instance {instance} (slice ({slice_beg},{slice_end})) in {elapsed_time:.3f} second(s)')
+    logger.info(f'{graph_filename}: {written_lines} line(s) for instance {instance} [slice={slice_desc}] in {elapsed_time:.3f} second(s)')
 
 def write_graph_files(predicates : list, states : list, states_dict : List[dict], transitions : List[list], o2d_states : List[O2DState], offsets : List[int], problem_filenames : List[Path], symb2spatial):
     assert len(states) == len(o2d_states)
@@ -903,7 +905,7 @@ def write_graph_files(predicates : list, states : list, states_dict : List[dict]
         slice_states = states[beg:end]
         slice_o2d_states = o2d_states[beg:end]
         graph_filename = fname.with_suffix('.lp')
-        write_graph_file(predicates, beg, end, i, slice_states, states_dict[i], transitions[i], slice_o2d_states, graph_filename, symb2spatial)
+        write_graph_file(predicates, (beg, end), i, slice_states, states_dict[i], transitions[i], slice_o2d_states, graph_filename, symb2spatial)
 
 
 if __name__ == '__main__':
