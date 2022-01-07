@@ -234,7 +234,7 @@ class NegatedConcept(Concept):
         return f'not_lp_{self.concept}_rp'
     def denotation(self, state : O2DState):
         subset = self.concept.denotation(state)
-        return set([ obj for obj in state.objects if obj not in subset ])
+        return set([ (obj,) for obj in state.objects if obj not in subset ])
 
 class ConjunctiveConcept(Concept):
     def __init__(self, concept1 : Concept, concept2 : Concept):
@@ -867,7 +867,8 @@ def write_graph_file(predicates : list, slice_beg : int, slice_end : int, instan
                     written_lines += 1
                 else:
                     for arg in tuples:
-                        arg_str = f'({",".join(arg)})'
+                        assert len(arg) == arity, f'Unexpected arity: arg={arg}, arity={arity}, tuples={tuples}, p={p}'
+                        arg_str = f'({arg[0]},)' if len(arg) == 1 else f'({",".join(arg)})'
                         fd.write(f'fval({instance},({p},{arg_str}),1).\n')
                         #logger.info(f'fval({instance},({p},{arg_str}),1).')
                         written_lines += 1
@@ -886,7 +887,8 @@ def write_graph_file(predicates : list, slice_beg : int, slice_end : int, instan
                         written_lines += 1
                     else:
                         for arg in tuples:
-                            arg_str = f'({",".join(arg)})'
+                            assert len(arg) == arity, f'Unexpected arity: arg={arg}, arity={arity}'
+                            arg_str = f'({arg[0]},)' if len(arg) == 1 else f'({",".join(arg)})'
                             fd.write(f'fval({instance},({p},{arg_str}),{index},1).\n')
                             #logger.info(f'fval({instance},({p},{arg_str}),{index},1).')
                             written_lines += 1
