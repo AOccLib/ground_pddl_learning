@@ -748,13 +748,14 @@ def get_o2d_states(problems, transitions : List[list], symb2spatial : dict, focu
     states = []
     o2d_states = []
     offsets = dict()
-    states_dict = dict()
+    states_dict = []
     for i in range(len(transitions)):
         start_time = timer()
+        seen_states = set()
+        states_dict.append(dict())
         offsets[i] = len(o2d_states)
         objects = problems[i].objects
         map_func = construct_map_function(symb2spatial, objects)
-        seen_states, states_dict[i] = set(), dict()
         for (src, action, dst) in transitions[i]:
             for state in [src, dst]:
                 if state not in seen_states:
@@ -810,7 +811,7 @@ def get_planning_transitions(problems, tasks):
     return transitions
 
 # Write graph files (.lp)
-def write_graph_file(predicates : list, slice_beg : int, slice_end : int, instance : int, states : list, states_dict : dict, transitions : list, o2d_states : List[O2DState], graph_filename : Path):
+def write_graph_file(predicates : list, slice_beg : int, slice_end : int, instance : int, states : list, states_dict : dict, transitions : list, o2d_states : List[O2DState], graph_filename : Path, symb2spatial):
     start_time = timer()
     written_lines = 0
     with graph_filename.open('w') as fd:
@@ -834,6 +835,11 @@ def write_graph_file(predicates : list, slice_beg : int, slice_end : int, instan
             index = states_dict[state]
             fd.write(f'node({instance},{index}).\n')
             logger.debug(f'node({instance},{index}).')
+            written_lines += 1
+
+        # constants
+        for obj in symb2spatial['constants']:
+            fd.write(f'constant({obj}).\n')
             written_lines += 1
 
         # features (predicates)
@@ -887,16 +893,15 @@ def write_graph_file(predicates : list, slice_beg : int, slice_end : int, instan
     elapsed_time = timer() - start_time
     logger.info(f'{graph_filename}: {written_lines} line(s) for instance {instance} (slice ({slice_beg},{slice_end})) in {elapsed_time:.3f} second(s)')
 
-def write_graph_files(predicates : list, states : list, states_dict : dict, transitions : List[list], o2d_states : List[O2DState], offsets : List[int], problem_filenames : List[Path]):
+def write_graph_files(predicates : list, states : list, states_dict : List[dict], transitions : List[list], o2d_states : List[O2DState], offsets : List[int], problem_filenames : List[Path], symb2spatial):
     assert len(states) == len(o2d_states)
     assert len(transitions) == len(problem_filenames)
     for i, fname in enumerate(problem_filenames):
         beg, end = offsets[i], offsets[i+1] if i+1 in offsets else len(states)
         slice_states = states[beg:end]
-        slice_states_dict = states_dict[i]
         slice_o2d_states = o2d_states[beg:end]
         graph_filename = fname.with_suffix('.lp')
-        write_graph_file(predicates, beg, end, i, slice_states, slice_states_dict, transitions[i], slice_o2d_states, graph_filename)
+        write_graph_file(predicates, beg, end, i, slice_states, states_dict[i], transitions[i], slice_o2d_states, graph_filename, symb2spatial)
 
 
 if __name__ == '__main__':
@@ -987,7 +992,7 @@ if __name__ == '__main__':
     # Last thing is to produce .lp files
     start_time = timer()
     logger.info(colored(f'Write graph files...', 'red', attrs = [ 'bold' ]))
-    write_graph_files(predicates, states, states_dict, transitions, o2d_states, offsets, problem_filenames)
+    write_graph_files(predicates, states, states_dict, transitions, o2d_states, offsets, problem_filenames, symb2spatial)
     elapsed_time = timer() - start_time
     logger.info(colored(f'{len(transitions)} file(s) written in {elapsed_time:.3f} second(s)', 'blue'))
 
