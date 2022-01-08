@@ -18,8 +18,6 @@ g_primitive_role_names = [ 'left', 'below', 'overlap', 'smaller', 'shape' ] # CH
 #g_primitive_concept_names = [ 'robot', 'block', 'table', 'cell', 'lockedcell', 'sokoban', 'crate', 'key', 'peg', 'disk', 'tile' ] # CHECK: all?
 g_primitive_concept_names = [ 'robot', 'block', 'table', 'cell', 'lockedcell', 'sokoban', 'crate', 'key', 'tile' ] # CHECK: all?
 
-class Options(object): pass
-
 def get_logger(name : str, log_file : Path, level = logging.INFO):
     logger = logging.getLogger(name)
     logger.propagate = False
@@ -585,10 +583,7 @@ def generate_concepts(primitive : List[Concept], roles : List[Role], states : Li
     return concepts
 
 # Generation of predicates
-def generate_predicates(states : List[O2DState], options : Options):
-    max_complexity = options.max_complexity
-    complexity_measure = options.complexity_measure # CHECK: NOT USED
-
+def generate_predicates(states : List[O2DState], max_complexity : int, max_complexity_measure : str):
     # Roles
     role_ctors = [ ('Role', 'None', InverseRole), ('Role', 'Role', CompositionRole) ]
     primitive_roles = [ FalsumRole() ]
@@ -981,10 +976,6 @@ if __name__ == '__main__':
     else:
         symb2spatial = symb2spatial_registry[domain_name]
 
-    options = Options()
-    setattr(options, 'complexity_measure', args.complexity_measure)
-    setattr(options, 'max_complexity', args.max_complexity)
-
     # load/process PDDL files
     start_time = timer()
     logger.info(colored(f'Parse and ground PDDL files...', 'red', attrs = [ 'bold' ]))
@@ -1022,12 +1013,12 @@ if __name__ == '__main__':
     # generate predicates
     start_time = timer()
     logger.info(colored(f'Generate predicates...', 'red', attrs = [ 'bold' ]))
-    roles, concepts, predicates = generate_predicates(o2d_states, options)
+    roles, concepts, predicates = generate_predicates(o2d_states, args.max_complexity, args.complexity_measure)
     elapsed_time = timer() - start_time
-    logger.info(colored(f'[max-complexity={options.max_complexity}] {len(roles)} role(s), {len(concepts)} concept(s), and {len(predicates)} predicate(s) in {elapsed_time:.3f} second(s)', 'blue'))
+    logger.info(colored(f'[max-complexity={args.max_complexity}] {len(roles)} role(s), {len(concepts)} concept(s), and {len(predicates)} predicate(s) in {elapsed_time:.3f} second(s)', 'blue'))
 
     # create output folder`
-    output_path = domain_path / f'complexity{options.max_complexity}'
+    output_path = domain_path / f'complexity{args.max_complexity}'
     output_path.mkdir(parents=True, exist_ok=True)
 
     # write roles, concepts and predicates to file
