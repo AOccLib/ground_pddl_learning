@@ -14,9 +14,6 @@ from random import shuffle
 import signal, argparse, re
 import logging
 
-class SolveArgs(object):
-    pass
-
 def rm_tree(path : Path, logger) -> None:
     for child in path.iterdir():
         if child.is_file():
@@ -85,7 +82,16 @@ def sort_lp_files_by_size(files : List[Path]) -> List[Path]:
     files_with_size.sort(key=lambda pair: pair[0])
     return [ fname for _, fname in files_with_size ]
 
-def solve(solver : Path, domain : Path, best_model_filename : Path, solve_args : SolveArgs):
+def solve(solver : Path,
+          domain : Path,
+          best_model_filename : Path,
+          solve_path : Path,
+          max_action_arity : int,
+          max_num_predicates : int,
+          max_time : int,
+          verify_only : bool,
+          ignore_constants : bool,
+          max_nodes_per_iteration : int) -> bool:
     # start clock
     start_time = timer()
 
@@ -93,7 +99,6 @@ def solve(solver : Path, domain : Path, best_model_filename : Path, solve_args :
     task_name = domain.name
     train_path = domain / 'train'
     test_path = domain / 'test'
-    solve_path = solve_args.solve_path
     logger.info(f'Params: solver={solver}, task={task_name}, train_path={train_path}, best_model_filename={best_model_filename}')
 
     # calculate model using solve set
@@ -111,14 +116,14 @@ def solve(solver : Path, domain : Path, best_model_filename : Path, solve_args :
     already_solved = dict()
 
     # setup solver command
-    solver_cmd_args = dict(max_time=solve_args.max_time, max_action_arity=solve_args.max_action_arity, max_num_predicates=solve_args.max_num_predicates, solver=solver, best_model_filename=best_model_filename)
+    solver_cmd_args = dict(max_time=max_time, max_action_arity=max_action_arity, max_num_predicates=max_num_predicates, solver=solver, best_model_filename=best_model_filename)
     solver_cmd_template = 'clingo -c max_action_arity={max_action_arity} -c num_predicates={max_num_predicates} --fast-exit -t 6 --sat-prepro=2 --time-limit={max_time} --stats=0 {solver} {files} | python3 get_best_model.py {best_model_filename}'
 
     solution_found = False
     while calculate_model:
         iterations += 1
 
-        if not solve_args.verify_only:
+        if not verify_only:
             files = get_lp_files(solve_path, [ '.*_caused.lp', 'best_model.lp' ])
             files_str = ' '.join([ str(fname) for fname in files ])
             solver_cmd = solver_cmd_template.format(files=files_str, **solver_cmd_args)
@@ -132,7 +137,6 @@ def solve(solver : Path, domain : Path, best_model_filename : Path, solve_args :
             if best_model_filename.exists(): best_model_filename.unlink()
             with Popen(solver_cmd, stdout=PIPE, shell=True, bufsize=1, universal_newlines=True) as p:
                 g_running_children.append(p)
-                print(g_running_children)
                 for line in p.stdout:
                     line = line.strip('\n')
                     logger.info(f'{line}')
@@ -166,7 +170,7 @@ def solve(solver : Path, domain : Path, best_model_filename : Path, solve_args :
         if best_model_filename.is_file():
             logger.info(f'Model found in {best_model_filename}')
             lifted_model = parse_lifted_model(best_model_filename, logger)
-            if solve_args.ignore_constants and len(lifted_model['constants']) > 0:
+            if ignore_constants and len(lifted_model['constants']) > 0:
                 logger.info(f"Ignoring constants {lifted_model['constants']} in model")
                 lifted_model['constants'] = set()
 
@@ -192,7 +196,7 @@ def solve(solver : Path, domain : Path, best_model_filename : Path, solve_args :
                         return False
 
                     # copy fname to solve path, and fill in partial.lp
-                    if not solve_args.verify_only:
+                    if not verify_only:
                         if not (solve_path / fname.name).exists():
                             added_files.append((inst, fname))
                             file_copy(fname, solve_path)
@@ -201,7 +205,7 @@ def solve(solver : Path, domain : Path, best_model_filename : Path, solve_args :
                             fd.write(f'filename("{fname.name}").\n')
                             fd.write(f'partial({inst},"{fname.name}").\n')
                             added_states.append(0)
-                            n = solve_args.max_nodes_per_iteration if solve_args.max_nodes_per_iteration > 0 else len(unsolved_nodes)
+                            n = max_nodes_per_iteration if max_nodes_per_iteration > 0 else len(unsolved_nodes)
                             shuffle(unsolved_nodes)
                             for node in unsolved_nodes[:n]:
                                 added_states[-1] += 1
@@ -750,9 +754,36 @@ if __name__ == '__main__':
 
     # setup solve path, and best-model and solution filenames
     solve_path = (domain if not args.results else Path(args.results[0]) / domain.name) / solve_folder
-    #best_model_filename = solve_path / f'best_{domain.name}_{solver.name}'
     best_model_filename = solve_path / 'best_model.lp'
     solution_filename = solve_path / 'solution.lp'
+
+    # create/clean solve_path
+    if args.verify_only:
+        if not solve_path.exists():
+            print(f"Requested verification on inexistent solve path '{solve_path}'")
+            exit(-1)
+    else:
+        continue_solve = args.continue_solve and solve_path.exists()
+        if not continue_solve and not args.verify_only:
+            solve_path.mkdir(parents=True, exist_ok=True)
+            for fname in solve_path.iterdir():
+                fname.unlink()
+
+            # populate solve_path with train set
+            train_path = domain / 'train'
+            if train_path.exists():
+                for fname in train_path.iterdir():
+                    file_copy(fname, solve_path)
+
+    # setup logger
+    log_file = solve_path / 'log.txt'
+    log_level = logging.INFO if args.debug_level == 0 else logging.DEBUG
+    logger = get_logger('solve', log_file, log_level)
+
+    # describe AWS instance
+    if args.aws_instance:
+        instance = solve_path / 'aws_instance_info.txt'
+        get_aws_instance(instance)
 
     # if only verification, check that solve_path contains a solution file and copy it to best_model_filename
     if args.verify_only:
@@ -762,46 +793,20 @@ if __name__ == '__main__':
         else:
             file_copy(solution_filename, best_model_filename)
 
-    # create/clean solve_path
-    continue_solve = args.continue_solve and solve_path.exists()
-    if not continue_solve and not args.verify_only:
-        solve_path.mkdir(parents=True, exist_ok=True)
-        for fname in solve_path.iterdir():
-            fname.unlink()
-
-        # populate solve_path with train set
-        train_path = domain / 'train'
-        if train_path.exists():
-            for fname in train_path.iterdir():
-                file_copy(fname, solve_path)
-
-    # describe AWS instance
-    if args.aws_instance:
-        instance = solve_path / 'aws_instance_info.txt'
-        get_aws_instance(instance)
-
-    # setup logger
-    log_file = solve_path / 'log.txt'
-    log_level = logging.INFO if args.debug_level == 0 else logging.DEBUG
-    logger = get_logger('solve', log_file, log_level)
-
-    solve_args = SolveArgs()
-    setattr(solve_args, 'ignore_constants', args.ignore_constants)
-    setattr(solve_args, 'max_action_arity', args.max_action_arity)
-    setattr(solve_args, 'max_nodes_per_iteration', args.max_nodes_per_iteration)
-    setattr(solve_args, 'max_num_predicates', args.max_num_predicates)
-    setattr(solve_args, 'max_time', args.max_time)
-    setattr(solve_args, 'solve_path', solve_path)
-    setattr(solve_args, 'verify_only', args.verify_only)
-
+    # solve
     solution_found = False
     try:
-        solution_found = solve(solver, domain, best_model_filename, solve_args)
+        solve_args = dict(solver=solver, domain=domain, best_model_filename=best_model_filename,
+                          solve_path=solve_path, max_action_arity=args.max_action_arity,
+                          max_num_predicates=args.max_num_predicates, max_time=args.max_time,
+                          verify_only=args.verify_only, ignore_constants=args.ignore_constants,
+                          max_nodes_per_iteration=args.max_nodes_per_iteration)
+        solution_found = solve(**solve_args)
     except KeyboardInterrupt:
         logger.warning(colored('Process INTERRUPTED by keyboard (ctrl-C)!', 'red'))
         pass
     finally:
-        if solve_args.verify_only:
+        if args.verify_only:
             assert best_model_filename.exists()
             best_model_filename.unlink()
         else:
