@@ -1024,6 +1024,19 @@ if __name__ == '__main__':
     elapsed_time = timer() - start_time
     logger.info(colored(f'[max-complexity={options.max_complexity}] {len(roles)} role(s), {len(concepts)} concept(s), and {len(predicates)} predicate(s) in {elapsed_time:.3f} second(s)', 'blue'))
 
+    # write roles, concepts and predicates to file
+    collection_filename = domain_path / 'collection.txt'
+    with collection_filename.open('w') as fd:
+        for i, r in enumerate(roles):
+            fd.write(f'Role r{i}.{r}/{r.complexity()}\n')
+        fd.write('\n')
+        for i, c in enumerate(concepts):
+            fd.write(f'Concept c{i}.{c}/{c.complexity()}\n')
+        fd.write('\n')
+        for i, p in enumerate(predicates):
+            fd.write(f'Predicate p{i}.{p}/{p.arity}\n')
+    logger.info(colored(f'Roles, concepts, and predicates written to {collection_filename}', 'blue'))
+
     # Last thing is to produce .lp files
     start_time = timer()
     logger.info(colored(f'Write graph files...', 'red', attrs = [ 'bold' ]))
