@@ -1025,7 +1025,7 @@ if __name__ == '__main__':
     logger.info(colored(f'[max-complexity={options.max_complexity}] {len(roles)} role(s), {len(concepts)} concept(s), and {len(predicates)} predicate(s) in {elapsed_time:.3f} second(s)', 'blue'))
 
     # write roles, concepts and predicates to file
-    collection_filename = domain_path / 'collection.txt'
+    collection_filename = domain_path / f'collection{options.max_complexity}.txt'
     with collection_filename.open('w') as fd:
         for i, r in enumerate(roles):
             fd.write(f'Role r{i}.{r}/{r.complexity()}\n')
