@@ -774,7 +774,9 @@ if __name__ == '__main__':
             train_path = domain / 'train'
             if train_path.exists():
                 for fname in train_path.iterdir():
-                    file_copy(fname, solve_path)
+                    if fname[:-3] == '.lp':
+                        print(f'File copy {fname} to {solve_path}')
+                        file_copy(fname, solve_path)
 
             # copy solver to solve_path
             file_copy(solver, solve_path)
