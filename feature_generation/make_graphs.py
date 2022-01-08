@@ -974,7 +974,18 @@ if __name__ == '__main__':
         logger.error(f"Domain '{domain_name}' not registered in symb2spatial '{symb2spatial_filename}'")
         exit(1)
     else:
-        symb2spatial = symb2spatial_registry[domain_name]
+        deferrals = []
+        key = domain_name
+        symb2spatial = symb2spatial_registry[key]
+        while 'defer-to' in symb2spatial and symb2spatial['defer-to'] not in deferrals:
+            next_key = symb2spatial['defer-to']
+            deferrals.append(next_key)
+            logger.info(colored(f"Deferral of '{key}' to '{next_key}' in '{symb2spatial_filename}'", 'blue'))
+            symb2spatial = symb2spatial_registry[next_key]
+            key = next_key
+        if 'defer-to' in symb2spatial:
+            logger.error(f"Circular deferrals in '{symb2spatial_filename}'")
+            exit(-1)
 
     # load/process PDDL files
     start_time = timer()

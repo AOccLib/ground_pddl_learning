@@ -36,17 +36,6 @@
                       "shape"      : [ ["shape(X,rectangle)", ["object(X)"]] ]
                     }
     },
-  "hanoi2" :
-    { "constants" : ["rectangle"],
-      "facts"     : [],
-      "rules"     : { "overlap"    : [ ["overlap(X,Y)", ["disk(X)", "peg(Y)", "on(X,Y)"]],
-                                       ["overlap(Y,X)", ["overlap(X,Y)"]] ],
-                      "below"      : [ ["below(X,Y)", ["on(Y,X)", "disk(X)", "disk(Y)"]],
-                                       ["below(X,Y)", ["on(Y,X)", "peg(X)", "disk(Y)"]] ],
-                      "shape"      : [ ["shape(X,rectangle)", ["object(X)"]] ]
-                    },
-      "removed"   : { "shape"      : [ ["shape(X,oval)", ["disk(X)"]] ] }
-    },
   "slidingtile" :
     { "constants" : ["rectangle"],
       "facts"     : [],
@@ -89,6 +78,8 @@
                                        ["shape(X,rectangle)", ["crate(X)"]]
                                      ]
                     }
-    }
+    },
+  "hanoi2" : { "defer-to" : "hanoi" },
+  "sokoban2" : { "defer-to" : "sokoban" }
 }
 
