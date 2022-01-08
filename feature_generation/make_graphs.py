@@ -824,7 +824,8 @@ def get_planning_transitions(problems, tasks):
     return transitions
 
 # Write graph files (.lp)
-def write_graph_file(predicates : list, slice_desc : tuple, instance : int, states : list, states_dict : dict, transitions : list, o2d_states : List[O2DState], graph_filename : Path, symb2spatial):
+def write_graph_file(predicates : list, slice_desc : tuple, instance : int, states : list, states_dict : dict,
+                     transitions : list, o2d_states : List[O2DState], graph_filename : Path, symb2spatial):
     start_time = timer()
     written_lines = 0
     with graph_filename.open('w') as fd:
@@ -928,14 +929,15 @@ def write_graph_file(predicates : list, slice_desc : tuple, instance : int, stat
     elapsed_time = timer() - start_time
     logger.info(f'{graph_filename}: {written_lines} line(s) for instance {instance} [slice={slice_desc}] in {elapsed_time:.3f} second(s)')
 
-def write_graph_files(predicates : list, states : list, states_dict : List[dict], transitions : List[list], o2d_states : List[O2DState], offsets : List[int], problem_filenames : List[Path], symb2spatial):
+def write_graph_files(predicates : list, states : list, states_dict : List[dict], transitions : List[list], o2d_states : List[O2DState],
+                      offsets : List[int], output_path : Path, problem_filenames : List[Path], symb2spatial):
     assert len(states) == len(o2d_states)
     assert len(transitions) == len(problem_filenames)
     for i, fname in enumerate(problem_filenames):
         beg, end = offsets[i], offsets[i+1] if i+1 in offsets else len(states)
         slice_states = states[beg:end]
         slice_o2d_states = o2d_states[beg:end]
-        graph_filename = fname.with_suffix('.lp')
+        graph_filename = output_path / fname.with_suffix('.lp').name
         write_graph_file(predicates, (beg, end), i, slice_states, states_dict[i], transitions[i], slice_o2d_states, graph_filename, symb2spatial)
 
 
@@ -1024,8 +1026,12 @@ if __name__ == '__main__':
     elapsed_time = timer() - start_time
     logger.info(colored(f'[max-complexity={options.max_complexity}] {len(roles)} role(s), {len(concepts)} concept(s), and {len(predicates)} predicate(s) in {elapsed_time:.3f} second(s)', 'blue'))
 
+    # create output folder`
+    output_path = domain_path / f'complexity{options.max_complexity}'
+    output_path.mkdir(parents=True, exist_ok=True)
+
     # write roles, concepts and predicates to file
-    collection_filename = domain_path / f'collection{options.max_complexity}.txt'
+    collection_filename = output_path / f'collection.txt'
     with collection_filename.open('w') as fd:
         for i, r in enumerate(roles):
             fd.write(f'Role r{i}.{r}/{r.complexity()}\n')
@@ -1040,7 +1046,7 @@ if __name__ == '__main__':
     # Last thing is to produce .lp files
     start_time = timer()
     logger.info(colored(f'Write graph files...', 'red', attrs = [ 'bold' ]))
-    write_graph_files(predicates, states, states_dict, transitions, o2d_states, offsets, problem_filenames, symb2spatial)
+    write_graph_files(predicates, states, states_dict, transitions, o2d_states, offsets, output_path, problem_filenames, symb2spatial)
     elapsed_time = timer() - start_time
     logger.info(colored(f'{len(transitions)} file(s) written in {elapsed_time:.3f} second(s)', 'blue'))
 
