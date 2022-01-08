@@ -114,6 +114,7 @@ def solve(solver : Path, domain : Path, best_model_filename : Path, solve_args :
     solver_cmd_args = dict(max_time=solve_args.max_time, max_action_arity=solve_args.max_action_arity, max_num_predicates=solve_args.max_num_predicates, solver=solver, best_model_filename=best_model_filename)
     solver_cmd_template = 'clingo -c max_action_arity={max_action_arity} -c num_predicates={max_num_predicates} --fast-exit -t 6 --sat-prepro=2 --time-limit={max_time} --stats=0 {solver} {files} | python3 get_best_model.py {best_model_filename}'
 
+    solution_found = False
     while calculate_model:
         iterations += 1
 
@@ -188,7 +189,7 @@ def solve(solver : Path, domain : Path, best_model_filename : Path, solve_args :
                         elapsed_time = timer() - start_time
                         logger.info(f'#calls={len(solver_wall_times)}, solve_wall_time={sum(solver_wall_times)}, solve_ground_time={sum(solver_ground_times)}, verify_time={sum(map(lambda batch: sum(batch), verify_times_batches))}, elapsed_time={elapsed_time}')
                         logger.critical(colored(f'Looping on partial.lp with nodes {unverified_nodes} from {fname.name}; already_solved={already_solved[fname.name]}', 'red', attrs = [ 'bold' ]))
-                        exit(-1)
+                        return False
 
                     # copy fname to solve path, and fill in partial.lp
                     if not solve_args.verify_only:
@@ -209,10 +210,14 @@ def solve(solver : Path, domain : Path, best_model_filename : Path, solve_args :
                         calculate_model = True
                     break
             verify_times_batches.append(verify_times)
+            solution_found = not calculate_model
+        else:
+            solution_found = False
 
     elapsed_time = timer() - start_time
     logger.info(f'#iterations={iterations}, added_files={added_files}, #added_states={sum(added_states)} in {added_states}')
     logger.info(f'#calls={len(solver_wall_times)}, solve_wall_time={sum(solver_wall_times)}, solve_ground_time={sum(solver_ground_times)}, verify_time={sum(map(lambda batch: sum(batch), verify_times_batches))}, elapsed_time={elapsed_time}')
+    return solution_found
 
 def read_file(filename : Path, logger) -> List[str]:
     lines = [ line for line in filename.open('r') ]
@@ -743,10 +748,19 @@ if __name__ == '__main__':
     else:
         tmp_folder = None
 
-    # setup solve path and best-model filename
+    # setup solve path, and best-model and solution filenames
     solve_path = (domain if not args.results else Path(args.results[0]) / domain.name) / solve_folder
     #best_model_filename = solve_path / f'best_{domain.name}_{solver.name}'
     best_model_filename = solve_path / 'best_model.lp'
+    solution_filename = solve_path / 'solution.lp'
+
+    # if only verification, check that solve_path contains a solution file and copy it to best_model_filename
+    if args.verify_only:
+        if not solution_filename.exists():
+            logger.error(f'Required solution file {solution_filename} is required for only verification')
+            exit(-1)
+        else:
+            file_copy(solution_filename, best_model_filename)
 
     # create/clean solve_path
     continue_solve = args.continue_solve and solve_path.exists()
@@ -780,12 +794,23 @@ if __name__ == '__main__':
     setattr(solve_args, 'solve_path', solve_path)
     setattr(solve_args, 'verify_only', args.verify_only)
 
+    solution_found = False
     try:
-        solve(solver, domain, best_model_filename, solve_args)
+        solution_found = solve(solver, domain, best_model_filename, solve_args)
     except KeyboardInterrupt:
         logger.warning(colored('Process INTERRUPTED by keyboard (ctrl-C)!', 'red'))
         pass
     finally:
+        if solve_args.verify_only:
+            assert best_model_filename.exists()
+            best_model_filename.unlink()
+        else:
+            # if solution found, rename best_model_filename to solution_filename
+            assert solution_found == best_model_filename.exists()
+            if solution_found:
+                assert best_model_filename.exists()
+                best_model_filename.rename(solution_filename)
+
         # cleanup
         if tmp_folder != None:
             n = len(str(domain))
