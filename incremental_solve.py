@@ -85,6 +85,7 @@ def sort_lp_files_by_size(files : List[Path]) -> List[Path]:
 def solve(solver : Path,
           domain : Path,
           best_model_filename : Path,
+          solution_filename : Path,
           solve_path : Path,
           max_action_arity : int,
           max_num_predicates : int,
@@ -99,7 +100,7 @@ def solve(solver : Path,
     task_name = domain.name
     train_path = domain / 'train'
     test_path = domain / 'test'
-    logger.info(f'Params: solver={solver}, task={task_name}, train_path={train_path}, best_model_filename={best_model_filename}')
+    logger.info(f'Params: solver={solver}, task={task_name}, train_path={train_path}, best_model_filename={best_model_filename}, solution_filename={solution_filename}')
 
     # calculate model using solve set
     iterations = 0
@@ -124,7 +125,7 @@ def solve(solver : Path,
         iterations += 1
 
         if not verify_only:
-            files = get_lp_files(solve_path, [ '.*_caused.lp', 'best_model.lp' ])
+            files = get_lp_files(solve_path, [ f'{solver.name}', f'{best_model_filename.name}', f'{solution_filename.name}' ])
             files_str = ' '.join([ str(fname) for fname in files ])
             solver_cmd = solver_cmd_template.format(files=files_str, **solver_cmd_args)
 
@@ -174,7 +175,7 @@ def solve(solver : Path,
                 logger.info(f"Ignoring constants {lifted_model['constants']} in model")
                 lifted_model['constants'] = set()
 
-            test_files = sort_lp_files_by_size(get_lp_files(test_path, [ '.*_caused.lp' ]))
+            test_files = sort_lp_files_by_size(get_lp_files(test_path))
             verify_times = []
             for fname in test_files:
                 verify_start_time = timer()
@@ -775,6 +776,9 @@ if __name__ == '__main__':
                 for fname in train_path.iterdir():
                     file_copy(fname, solve_path)
 
+            # copy solver to solve_path
+            file_copy(solver, solve_path)
+
     # setup logger
     log_file = solve_path / 'log.txt'
     log_level = logging.INFO if args.debug_level == 0 else logging.DEBUG
@@ -796,7 +800,8 @@ if __name__ == '__main__':
     # solve
     solution_found = False
     try:
-        solve_args = dict(solver=solver, domain=domain, best_model_filename=best_model_filename,
+        solve_args = dict(solver=solve_path / solver.name, domain=domain,
+                          best_model_filename=best_model_filename, solution_filename=solution_filename,
                           solve_path=solve_path, max_action_arity=args.max_action_arity,
                           max_num_predicates=args.max_num_predicates, max_time=args.max_time,
                           verify_only=args.verify_only, ignore_constants=args.ignore_constants,
