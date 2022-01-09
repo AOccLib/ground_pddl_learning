@@ -71,7 +71,7 @@
                                        ["cell(Y)", ["at(X,Y)"]]
                                      ],
                       "overlap"    : [ ["overlap(X,Y)", ["at(X,Y)"]],
-                                       ["overlap(Y,X)", ["at(X,Y)"]] ],
+                                       ["overlap(Y,X)", ["overlap(X,Y)"]] ],
                       "left"       : [ ["left(X,Y)", ["leftof(X,Y)"]] ],
                       "shape"      : [ ["shape(X,sokoshape)", ["sokoban(X)"]],
                                        ["shape(X,rectangle)", ["cell(X)"]],
