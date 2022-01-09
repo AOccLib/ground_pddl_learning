@@ -672,7 +672,7 @@ def verify_instance(ground_model : dict, inst : int, logger) -> bool:
         rv, reason = verify_instance_node(ground_model, inst, node_index, f_nodes, f_nodes_r, logger)
         if not rv:
             unverified_nodes.append(node_index)
-            logger.warning(f'Bad verification in inst={inst} for node={node_index}; reason={reason}')
+            logger.warning(colored(f'Bad verification in inst={inst} for node={node_index}; reason={reason}', 'magenta'))
     return unverified_nodes == [], unverified_nodes
 
 def verify_assumptions(ground_model : dict, inst : int, logger) -> bool:
