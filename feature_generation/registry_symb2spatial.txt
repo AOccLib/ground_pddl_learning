@@ -1,4 +1,4 @@
-{ "blocks" :
+{ "blocks4ops" :
     { "constants" : ["rectangle", "r", "t"],
       "facts"     : [ ["robot",["r"]], ["table",["t"]] ],
       "rules"     : { "block"      : [ ["block(X)", ["ontable(X)"]],
@@ -26,7 +26,7 @@
                       "shape"      : [ ["shape(X,rectangle)", ["object(X)"]] ]
                     }
     },
-  "hanoi" :
+  "hanoi4ops" :
     { "constants" : ["rectangle"],
       "facts"     : [],
       "rules"     : { "overlap"    : [ ["overlap(X,Y)", ["disk(X)", "peg(Y)", "on(X,Y)"]],
@@ -79,7 +79,7 @@
                                      ]
                     }
     },
-  "hanoi1op" : { "defer-to" : "hanoi" },
+  "hanoi1op" : { "defer-to" : "hanoi4ops" },
   "sokoban2" : { "defer-to" : "sokoban" }
 }
 
