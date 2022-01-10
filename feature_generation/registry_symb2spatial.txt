@@ -14,7 +14,7 @@
                       "shape"      : [ ["shape(X,rectangle)", ["object(X)"]] ]
                     }
     },
-  "blocks2" :
+  "blocks3ops" :
     { "constants" : ["rectangle", "t"],
       "facts"     : [ ["table",["t"]] ],
       "rules"     : { "block"      : [ ["block(X)", ["ontable(X)"]],
@@ -79,7 +79,7 @@
                                      ]
                     }
     },
-  "hanoi2" : { "defer-to" : "hanoi" },
+  "hanoi1op" : { "defer-to" : "hanoi" },
   "sokoban2" : { "defer-to" : "sokoban" }
 }
 
