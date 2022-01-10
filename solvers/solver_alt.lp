@@ -140,7 +140,8 @@ nelegible(F) :- fval(I,(F,(_,O)),V), not object(I,O).
 nelegible(F) :- fval(I,(F,(O,_)),V), not object(I,O).
 nelegible(F) :- fval(I,(F,(_,O)),S,V), not object(I,O).
 nelegible(F) :- fval(I,(F,(O,_)),S,V), not object(I,O).
-{ pred(F) : feature(F), not nelegible(F) } num_predicates :- opt_testing < 2, opt_synthesis = 1.
+%{ pred(F) : feature(F), not nelegible(F) } num_predicates :- opt_testing < 2, opt_synthesis = 1.
+{ pred(F) : feature(F) } num_predicates :- opt_testing < 2, opt_synthesis = 1.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
