@@ -961,9 +961,14 @@ if __name__ == '__main__':
     domain_path = Path(args.domain)
     domain_name = domain_path.name
 
+    # create output folder`
+    output_path = domain_path / f'complexity{args.max_complexity}'
+    output_path.mkdir(parents=True, exist_ok=True)
+
     # setup logger
+    log_file = output_path / 'log.txt'
     log_level = logging.INFO if args.debug_level == 0 else logging.DEBUG
-    logger = get_logger(exec_name, '', log_level)
+    logger = get_logger(exec_name, log_file, log_level)
 
     # load symb2spatial
     symb2spatial_filename = Path(args.symb2spatial)
@@ -1027,10 +1032,6 @@ if __name__ == '__main__':
     roles, concepts, predicates = generate_predicates(o2d_states, args.max_complexity, args.complexity_measure)
     elapsed_time = timer() - start_time
     logger.info(colored(f'[max-complexity={args.max_complexity}] {len(roles)} role(s), {len(concepts)} concept(s), and {len(predicates)} predicate(s) in {elapsed_time:.3f} second(s)', 'blue'))
-
-    # create output folder`
-    output_path = domain_path / f'complexity{args.max_complexity}'
-    output_path.mkdir(parents=True, exist_ok=True)
 
     # write roles, concepts and predicates to file
     collection_filename = output_path / f'collection.txt'
