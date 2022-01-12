@@ -220,8 +220,9 @@ def solve(solver : Path,
             solution_found = False
 
     elapsed_time = timer() - start_time
+    status_string = colored('OK', 'green', attrs = [ 'bold' ]) if solution_found else colored('Failed', 'red', attrs = [ 'bold' ])
     logger.info(f'#iterations={iterations}, added_files={added_files}, #added_states={sum(added_states)} in {added_states}')
-    logger.info(f'#calls={len(solver_wall_times)}, solve_wall_time={sum(solver_wall_times)}, solve_ground_time={sum(solver_ground_times)}, verify_time={sum(map(lambda batch: sum(batch), verify_times_batches))}, elapsed_time={elapsed_time}')
+    logger.info(f'#calls={len(solver_wall_times)}, solve_wall_time={sum(solver_wall_times)}, solve_ground_time={sum(solver_ground_times)}, verify_time={sum(map(lambda batch: sum(batch), verify_times_batches))}, elapsed_time={elapsed_time}, status={status_string}')
     return solution_found
 
 def read_file(filename : Path, logger) -> List[str]:
