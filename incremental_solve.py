@@ -215,7 +215,7 @@ def solve(solver : Path,
                         calculate_model = True
                     break
             verify_times_batches.append(verify_times)
-            solution_found = not calculate_model
+            solution_found = not unverified_nodes
         else:
             solution_found = False
 
