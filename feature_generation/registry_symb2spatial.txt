@@ -61,7 +61,7 @@
                       "shape_form" : [ ["shape_form(S)", ["objshape(S)"]] ]
                     }
     },
-  "sokoban" :
+  "sokoban1" :
     { "constants" : ["sokoban1", "rectangle", "sokoshape"],
       "facts"     : [],
       "rules"     : { "cell"       : [ ["cell(X)", ["leftof(X,Y)"]],
@@ -80,6 +80,8 @@
                     }
     },
   "hanoi1op" : { "defer-to" : "hanoi4ops" },
-  "sokoban2" : { "defer-to" : "sokoban" }
+  "sokoban"  : { "defer-to" : "sokoban1" },
+  "sokoban2" : { "defer-to" : "sokoban1" },
+  "grid2"    : { "defer-to" : "grid" }
 }
 
