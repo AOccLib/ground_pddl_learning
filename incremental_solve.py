@@ -176,7 +176,9 @@ def solve(solver : Path,
                 lifted_model['constants'] = set()
 
             test_files = sort_lp_files_by_size(get_lp_files(test_path))
+            solution_found = True
             verify_times = []
+
             for fname in test_files:
                 verify_start_time = timer()
                 distilled = parse_graph_file(fname, logger)
@@ -213,9 +215,9 @@ def solve(solver : Path,
                                 fd.write(f'relevant({inst},{node}).\n')
                                 already_solved[fname.name].add(node)
                         calculate_model = True
+                    solution_found = False
                     break
             verify_times_batches.append(verify_times)
-            solution_found = not unverified_nodes
         else:
             solution_found = False
 
