@@ -82,6 +82,7 @@
   "hanoi1op" : { "defer-to" : "hanoi4ops" },
   "sokoban"  : { "defer-to" : "sokoban1" },
   "sokoban2" : { "defer-to" : "sokoban1" },
-  "grid2"    : { "defer-to" : "grid" }
+  "grid2"    : { "defer-to" : "grid" },
+  "grid3"    : { "defer-to" : "grid" }
 }
 
