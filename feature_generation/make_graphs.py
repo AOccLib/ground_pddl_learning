@@ -652,7 +652,7 @@ def apply_rule(ext_state : dict, pred, head, body):
     head_vars = head[1+head.index('('):-1].split(',')
     logger.debug(f'apply_rule: head={head}, vars={head_vars}, body={body}, keys={body_keys}, vars={body_vars}, values={values}')
     something_added = False
-    for tup in product(*values):
+    for tup in product(*values): # CHECK: This is full joint of denotations of atoms in body, it could be very large!
         trigger = True
         args = tuple(tup)
         assignment = dict()
@@ -766,7 +766,7 @@ def get_o2d_states(problems, transitions : List[list], symb2spatial : dict, focu
         for (src, action, dst) in transitions[i]:
             for state in [src, dst]:
                 if state not in seen_states:
-                    assert state not in states_dict
+                    assert state not in states_dict[i]
                     states_dict[i][state] = len(states)
                     seen_states.add(state)
                     states.append(state)
