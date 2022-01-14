@@ -1,13 +1,4 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Changes
-
-% Base: test3z3_5.lp
-
-% 1. Add constants (need to revise/change all involving fval/3, fval/4,
-%    argtuple/2, prec/3, eff/3, objtuple/3, a_atom/2, a_atom/3
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Suggested call
 
 % clingo -t 6 --sat-prepro=2 --time-limit=7200 <solver> <files>
@@ -19,11 +10,6 @@
 #const num_predicates = 12.
 #const max_action_arity = 3.
 #const null_arg = (null,).
-
-% Whether doing synthesis (learning) or validation
-#const opt_synthesis = 1.
-#const opt_ver_instance = 0.
-#const opt_ver_node = 0.
 
 % Allow equal objects in arguments for actions
 #const opt_equal_objects = 0.
@@ -39,9 +25,6 @@
 
 % Output
 #const opt_verbose = 0.
-
-% Testing: add-ons for testing purposes
-#const opt_testing = 0.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -94,15 +77,10 @@ p_arity(F,0) :- nullary(F).                                                     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Set relevant nodes: all nodes are relevant for synthesis, but just one node is relevant for verification
 
-#defined disabled/1.
 #defined filename/1.
 #defined partial/2.
 
-relevant(opt_ver_instance,opt_ver_node) :- node(opt_ver_instance,opt_ver_node), not disabled(opt_ver_instance),  opt_synthesis = 0.
-relevant(I,S)                           :- node(I,S), not disabled(I), not partial(I,File) : filename(File);     opt_synthesis = 1.
-
-% To bypass instance I altogether       : assert disabled(I)
-% To consider "some" nodes of instance I: remove disabled(I), assert partial(I,File), filename(File), and add relevant(I,S) for target nodes
+relevant(I,S) :- node(I,S), not partial(I,File) : filename(File).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -112,36 +90,16 @@ relevant(I,S)                           :- node(I,S), not disabled(I), not parti
 % a_arity(A,N): action A has arity N
 
 action(A) :- tlabel(I,(S,T),A), relevant(I,S).
-{ a_arity(A,0..max_action_arity) } = 1 :- action(A), opt_synthesis = 1.
+{ a_arity(A,0..max_action_arity) } = 1 :- action(A).
 
 % object(I,O): name O is object in instance I
-object(I,O) :- not disabled(I), fval(I,(verum,(O,)),1).
+object(I,O) :- fval(I,(verum,(O,)),1).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Choose predicates from high-level language
 
-% non_functional(F): non-static feature F is non-functional if there are two atoms
-%                    (F,(O,O1)) and (F,(O,O2)) true at some node in some instance
-
-non_functional(F) :- relevant(I,S), feature(F), not f_static(I,F), object(I,O),
-                     2 { fval(I,(F,(O,O1)),S,1) : object(I,O1) },
-                     opt_synthesis = 1.
-
-% Choose num_predicates among non-functional features (denoted by pred/1)
-feature_good(F) :- feature(F), not non_functional(F), opt_synthesis = 1.
-%{ pred(F) : feature(F), not non_functional(F) } num_predicates :- opt_testing = 2, opt_synthesis = 1.
-%{ pred(F) : feature(F) } num_predicates :- opt_testing < 2, opt_synthesis = 1.
-% CHECK: Static preds not chosen! Revise this.
-
-nelegible(F) :- fval(I,(F,(O,)),S,V), not object(I,O), O != null.
-nelegible(F) :- fval(I,(F,(O,)),V), not object(I,O), O != null.
-nelegible(F) :- fval(I,(F,(_,O)),V), not object(I,O).
-nelegible(F) :- fval(I,(F,(O,_)),V), not object(I,O).
-nelegible(F) :- fval(I,(F,(_,O)),S,V), not object(I,O).
-nelegible(F) :- fval(I,(F,(O,_)),S,V), not object(I,O).
-%{ pred(F) : feature(F), not nelegible(F) } num_predicates :- opt_testing < 2, opt_synthesis = 1.
-{ pred(F) : feature(F) } num_predicates :- opt_testing < 2, opt_synthesis = 1.
+{ pred(F) : feature(F) } num_predicates.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -265,12 +223,10 @@ goodtuple(A,T)    :- action(A), argtuple(T,N), a_var(A,V) : t_var(T,V).
 % prec(A,M,V): atom M is negative (resp. positive) precondition of action A if V=0 (resp. V=1)
 
 { prec(A,(P,T),1) }      :- action(A), pred(P), p_arity(P,N), argtuple(T,N), goodtuple(A,T),
-                            opt_allow_negative_precs = 0,
-                            opt_synthesis = 1.
+                            opt_allow_negative_precs = 0.
 
 { prec(A,(P,T),0..1) } 1 :- action(A), pred(P), p_arity(P,N), argtuple(T,N), goodtuple(A,T),
-                            opt_allow_negative_precs = 1,
-                            opt_synthesis = 1.
+                            opt_allow_negative_precs = 1.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -282,12 +238,11 @@ goodtuple(A,T)    :- action(A), argtuple(T,N), a_var(A,V) : t_var(T,V).
 p_static(P) :- pred(P), f_static(I,P) : instance(I).
 p_fluent(P) :- pred(P), not f_static(I,P) : instance(I).
 
-{ eff(A,(P,T),0..1) } 1 :- action(A), pred(P), not p_static(P), p_arity(P,N), argtuple(T,N), goodtuple(A,T),
-                           opt_synthesis = 1.
+{ eff(A,(P,T),0..1) } 1 :- action(A), pred(P), not p_static(P), p_arity(P,N), argtuple(T,N), goodtuple(A,T).
 
 % E1. Avoid noop actions and rule out contradictory effects
-:- action(A), { eff(A,(P,T),0..1) : pred(P), p_arity(P,N), argtuple(T,N) } = 0, opt_synthesis = 1.
-:- eff(A,M,0), eff(A,M,1), opt_synthesis = 1.
+:- action(A), { eff(A,(P,T),0..1) : pred(P), p_arity(P,N), argtuple(T,N) } = 0.
+:- eff(A,M,0), eff(A,M,1).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -542,41 +497,35 @@ a_atom(A,M)   :- a_atom(I,A,M), I = 1..2.
            -1,I,P,VV,2 : a_atom(I,A,(P,( VV,  V)));
             1,I,P,VV,1 : a_atom(I,A,(P,(V+1, VV)));
             1,I,P,VV,2 : a_atom(I,A,(P,( VV,V+1))) },
-   opt_symmetries = 1,
-   opt_synthesis = 1.
+   opt_symmetries = 1.
 
 % Based on "separating the levels"
 % V occurs less or equal times than V+1 on the first argument of P (in type-I condition of action A)
 lesseq(V,V+1,A,I,P,1) :- V = 1..max_action_arity-1, action(A), I = 1..2, pred(P),
    0 #sum{ -1,VV : a_atom(I,A,(P,(  V,VV))); 1,VV : a_atom(I,A,(P,(V+1,VV))) },
-   opt_symmetries = 2,
-   opt_synthesis = 1.
+   opt_symmetries = 2.
 
 % V occurs less or equal times than V+1 on the second argument of P (in type-I condition of action A)
 lesseq(V,V+1,A,I,P,2) :- V = 1..max_action_arity-1, action(A), I = 1..2, pred(P),
    0 #sum{ -1,VV : a_atom(I,A,(P,(VV,  V))); 1,VV : a_atom(I,A,(P,(VV,V+1))) },
-   opt_symmetries = 2,
-   opt_synthesis = 1.
+   opt_symmetries = 2.
 
 % V occurs less times than V+1 on the first argument of P (in type-I condition of action A)
 less(V,V+1,A,I,P,1) :- V = 1..max_action_arity-1, action(A), I = 1..2, pred(P),
    0 #sum{ -1,VV : a_atom(I,A,(P,(  V,VV))); 1,VV : a_atom(I,A,(P,(V+1,VV))) },
-   opt_symmetries = 2,
-   opt_synthesis = 1.
+   opt_symmetries = 2.
 
 % V occurs less times than V+1 on the second argument of P (in type-I condition of action A)
 less(V,V+1,A,I,P,2) :- V = 1..max_action_arity-1, action(A), I = 1..2, pred(P),
    0 #sum{ -1,VV : a_atom(I,A,(P,(VV,  V))); 1,VV : a_atom(I,A,(P,(VV,V+1))) },
-   opt_symmetries = 2,
-   opt_synthesis = 1.
+   opt_symmetries = 2.
 
 % It cannot be that object O occurs less than O+1 as argument I of P,
 % and it occurs less than or equal on the previous pairs (PP,II)
 :- V = 1..max_action_arity-1, action(A),
    less(V,V+1,A,I,P,J),
    lesseq(V,V+1,A,II,PP,JJ) : II = 1..2, pred(PP), JJ = 1..2, (II,PP,JJ) < (I,P,J);
-   opt_symmetries = 2,
-   opt_synthesis = 1.
+   opt_symmetries = 2.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -603,23 +552,15 @@ less(V,V+1,A,I,P,2) :- V = 1..max_action_arity-1, action(A), I = 1..2, pred(P),
 
 #show.
 
-% Display mode
-#show    synthesis : opt_synthesis = 1.
-#show verification : opt_synthesis = 0.
-
 % Display objects and constants
 #show object/2.
 #show constant/1.
 
 % Display selected predicates
-#show      pred(F) : pred(F),                         opt_synthesis + opt_verbose >= 1.
-#show  p_static(P) : p_static(P), pred(P),            opt_synthesis + opt_verbose >= 1.
+#show pred/1.
+#show p_static(P) : p_static(P), pred(P).
 
 % Display action schemas
-%#show    action(A) : action(A),                       opt_synthesis + opt_verbose >= 1.
-%#show a_arity(A,N) : a_arity(A,N),                    opt_synthesis + opt_verbose >= 1.
-%#show  prec(A,M,V) : prec(A,M,V),                     opt_synthesis + opt_verbose >= 1.
-%#show   eff(A,M,V) : eff(A,M,V),                      opt_synthesis + opt_verbose >= 1.
 #show action/1.
 #show a_arity/2.
 #show prec/3.
@@ -628,14 +569,7 @@ less(V,V+1,A,I,P,2) :- V = 1..max_action_arity-1, action(A), I = 1..2, pred(P),
 % Display applicable actions
 %#show appl(I,A,OO,S)   : appl(I,A,OO,S),                             opt_verbose >= 2.
 %#show fappl(I,A,S,K,O) : fappl(I,A,S,K,O),                           opt_verbose >= 2.
-%#show appl(I,A,OO,S)   : appl(I,A,OO,S),                           opt_synthesis  = 0.
 
 % Display mapping of grounded actions to edges
 #show fnext(I,A,K,O,S1,S2) : tlabel(I,(S1,S2),A), fnext(I,K,O,S1,S2), opt_verbose >= 2.
-
-%#show next(I,A,null_arg,S1,S2)   : a_arity(A,0), tlabel(I,(S1,S2),A), fnext(I,0,0,S1,S2).
-%#show next(I,A,(O1,),S1,S2)      : a_arity(A,1), tlabel(I,(S1,S2),A), fnext(I,1,O1,S1,S2).
-%#show next(I,A,(O1,O2),S1,S2)    : a_arity(A,2), tlabel(I,(S1,S2),A), fnext(I,1,O1,S1,S2), fnext(I,2,O2,S1,S2).
-%#show next(I,A,(O1,O2,O3),S1,S2) : a_arity(A,3), tlabel(I,(S1,S2),A), fnext(I,1,O1,S1,S2), fnext(I,2,O2,S1,S2), fnext(I,3,O3,S1,S2).
-%#show next(I,A,(O1,O2,O3,O4),S1,S2) : a_arity(A,3), tlabel(I,(S1,S2),A), fnext(I,1,O1,S1,S2), fnext(I,2,O2,S1,S2), fnext(I,3,O3,S1,S2), fnext(I,4,O4,S1,S2).
 
