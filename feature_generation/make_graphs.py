@@ -144,7 +144,7 @@ class ConjunctiveRole(Role):
     def complexity(self):
         return 1 + sum([ c.complexity() for c in self.role_set ])
     def __str__(self):
-        return f'inter_lp_{"_sep_".join([ str(c) for c in self.role_set ])}_rp'
+        return f'inter_lp_{"_sep_".join(sorted([ str(c) for c in self.role_set ]))}_rp'
     def denotation(self, state : O2DState):
         denotations = [ c.denotation(state) for c in self.role_set ]
         return set.intersection(*denotations)
@@ -253,7 +253,7 @@ class ConjunctiveConcept(Concept):
     def complexity(self):
         return 1 + sum([ c.complexity() for c in self.concept_set ])
     def __str__(self):
-        return f'inter_lp_{"_sep_".join([ str(c) for c in self.concept_set ])}_rp'
+        return f'inter_lp_{"_sep_".join(sorted([ str(c) for c in self.concept_set ]))}_rp'
     def denotation(self, state : O2DState):
         denotations = [ c.denotation(state) for c in self.concept_set ]
         return set.intersection(*denotations)
@@ -554,6 +554,7 @@ def generate_concepts(primitive : List[Concept], roles : List[Role], states : Li
         concept_names.union(set([ str(c) for c in new_concepts ]))
         for pair in product(range(len(concepts)), repeat=2):
             if pair[0] != pair[1] and (pair[0] in new_indices or pair[1] in new_indices):
+                #logger.info(f'Trying pair {pair}: c1={concepts[pair[0]]}, c2={concepts[pair[1]]}')
                 for c in concepts_for_pair(pair, concepts, ctors):
                     if c.complexity() <= complexity_bound and str(c) not in concept_names:
                         c.set_denotations(states)
@@ -573,11 +574,11 @@ def generate_concepts(primitive : List[Concept], roles : List[Role], states : Li
     return concepts
 
 # Generation of predicates
-def generate_predicates(primitives : dict, states : List[O2DState], max_complexity : int, complexity_measure : str):
+def generate_predicates(o2d_concepts_and_roles : dict, states : List[O2DState], max_complexity : int, complexity_measure : str):
     # Roles
     role_ctors = [ ('Role', 'None', InverseRole), ('Role', 'Role', CompositionRole) ]
     primitive_roles = [ FalsumRole() ]
-    primitive_roles.extend([ O2DRole(name) for name in primitives['roles'] ])
+    primitive_roles.extend([ O2DRole(name) for name in o2d_concepts_and_roles['roles'] ])
     roles = generate_roles(primitive_roles, states, max_complexity, role_ctors)
     for i, r in enumerate(roles):
         logger.debug(f'Role r{i}.{r}/{r.complexity()}')
@@ -585,7 +586,7 @@ def generate_predicates(primitives : dict, states : List[O2DState], max_complexi
     # Concepts
     concept_ctors = [ ('Concept', 'None', NegatedConcept), ('Concept', 'Concept', ConjunctiveConcept), ('Role', 'Concept', ERConcept) ]
     primitive_concepts = [ FalsumConcept(), VerumConcept() ]
-    primitive_concepts.extend([ O2DConcept(name) for name in primitives['concepts'] ])
+    primitive_concepts.extend([ O2DConcept(name) for name in o2d_concepts_and_roles['concepts'] ])
     concepts = generate_concepts(primitive_concepts, roles, states, max_complexity, concept_ctors)
     for i, c in enumerate(concepts):
         logger.debug(f'Concept c{i}.{c}/{c.complexity()}')
@@ -634,17 +635,14 @@ def generate_predicates(primitives : dict, states : List[O2DState], max_complexi
     return roles, concepts, predicates
 
 # Obtain O2D states from states
-def apply_rule(ext_state : dict, pred, head, body):
-    assert len(pred) > 2 and pred[-2] == '/'
-    pred_name = pred[:-2]
-    pred_arity = int(pred[-1:])
-    assert pred_name == head[:head.index('(')]
+def apply_rule(ext_state : dict, pred : str, arity : int, head : str, body : list):
+    assert pred == head[:head.index('(')], f"Rule head doesn't match predicate '{pred}' in registry"
     body_keys = [ atom[:atom.index('(')] for atom in body ]
     body_vars = [ atom[1+atom.index('('):-1].split(',') for atom in body ]
     values = [ ext_state[key] if key in ext_state else set() for key in body_keys ]
     head_vars = head[1+head.index('('):-1].split(',')
     logger.debug(f'apply_rule: head={head}, vars={head_vars}, body={body}, keys={body_keys}, vars={body_vars}, values={values}')
-    assert len(head_vars) == pred_arity
+    assert len(head_vars) == arity, f"Number of variables in rule head '{head}' doesn't match declared arity '{pred}/{arity}'"
 
     something_added = False
     for tup in product(*values): # CHECK: This is full joint of denotations of atoms in body, it could be very large!
@@ -675,17 +673,17 @@ def apply_rule(ext_state : dict, pred, head, body):
             if atom_args not in ext_state[pred] and len(set(atom_args)) == len(head_vars): # CHECK: avoid repeated args?
                 something_added = True
                 ext_state[pred].add(atom_args)
-                logger.debug(colored(f'trigger: pred={pred}, head={head}, body={body}, args={args}, assignment={assignment}, atom_args={atom_args}', 'blue'))
+                logger.debug(colored(f'trigger: pred={pred}/{arity}, head={head}, body={body}, args={args}, assignment={assignment}, atom_args={atom_args}', 'blue'))
     return something_added
 
-def apply_rules_for_pred(ext_state : dict, pred, rules) -> bool:
+def apply_rules_for_pred(ext_state : dict, pred : str, arity : int, rules : list) -> bool:
     if pred not in ext_state: ext_state[pred] = set()
     something_added = False
     some_change = True
     while some_change:
         some_change = False
         for head, body in rules:
-            if apply_rule(ext_state, pred, head, body):
+            if apply_rule(ext_state, pred, arity, head, body):
                 something_added = True
                 some_change = True
     return something_added
@@ -694,8 +692,11 @@ def apply_rules(ext_state : dict, rules):
     something_added = True
     while something_added:
         something_added = False
-        for pred in rules:
-            if apply_rules_for_pred(ext_state, pred, rules[pred]):
+        for pred in sorted(rules.keys()):
+            assert len(pred) > 2 and pred[-2] == '/', f"Unexpected predicate name '{pred}' in registry (format is <pred_name>/<arity>)"
+            pred_name = pred[:-2]
+            pred_arity = int(pred[-1:])
+            if apply_rules_for_pred(ext_state, pred_name, pred_arity, rules[pred]):
                 something_added = True
 
 def get_dict_from_state(state):
@@ -747,9 +748,9 @@ def get_o2d_state_from_ext_state(i : int, ext_state : dict, primitive_concepts_a
         denotations[name] = ext_state[name] if name in ext_state else set()
     return O2DState(i, objects, denotations)
 
-def get_o2d_states(problems, transitions : List[list], symb2spatial : dict, primitives : dict):
+def get_o2d_states(problems, transitions : List[list], symb2spatial : dict, o2d_concepts_and_roles : dict):
     assert len(problems) == len(transitions)
-    primitive_concepts_and_roles = primitives['concepts'] + primitives['roles']
+    primitive_concepts_and_roles = o2d_concepts_and_roles['concepts'] + o2d_concepts_and_roles['roles']
     states = []
     o2d_states = []
     offsets = dict()
@@ -934,26 +935,15 @@ def write_graph_files(predicates : list, states : list, states_dict : List[dict]
         graph_filename = output_path / fname.with_suffix('.lp').name
         write_graph_file(predicates, (beg, end), i, slice_states, states_dict[i], transitions[i], slice_o2d_states, graph_filename, symb2spatial)
 
-def get_primitives(symb2spatial : dict) -> dict:
-    assert 'primitives' in symb2spatial, "TEMPORAL CHECK (REMOVE AFTERWARDS): expecting 'primitives' record in registry" #CHECK
-    primitives = dict(raw=[], concepts=[], roles=[])
-    if 'facts' in symb2spatial:
-        for fact in symb2spatial['facts']:
-            name = fact[0]
-            arity = len(fact[1])
-            if arity == 1 or arity == 2:
-                name_with_arity = name + '/' + str(arity)
-                if name_with_arity not in primitives['raw']:
-                    primitives['raw'].append(name_with_arity)
-    if 'primitives' in symb2spatial:
-        primitives['raw'].extend(symb2spatial['primitives'])
-    if 'rules' in symb2spatial:
-        primitives['raw'].extend(list(symb2spatial['rules'].keys()))
-    primitives['concepts'] = [ name[:-2] for name in primitives['raw'] if name[-2:] == '/1' ]
-    primitives['roles'] = [ name[:-2] for name in primitives['raw'] if name[-2:] == '/2' ]
-    if not primitives['concepts']: logger.warning('Empty primitive concepts')
-    if not primitives['roles']: logger.warning('Empty primitive roles')
-    return primitives
+def get_o2d_concepts_and_roles(symb2spatial : dict) -> dict:
+    assert 'o2d' in symb2spatial, "TEMPORAL CHECK (REMOVE AFTERWARDS): expecting 'o2d' record in registry" #CHECK
+    o2d_concepts_and_roles = dict(raw=[], concepts=[], roles=[])
+    o2d_concepts_and_roles['raw'] = sorted(symb2spatial['o2d'])
+    o2d_concepts_and_roles['concepts'] = [ name[:-2] for name in o2d_concepts_and_roles['raw'] if name[-2:] == '/1' ]
+    o2d_concepts_and_roles['roles'] = [ name[:-2] for name in o2d_concepts_and_roles['raw'] if name[-2:] == '/2' ]
+    if not o2d_concepts_and_roles['concepts']: logger.warning('Empty primitive concepts')
+    if not o2d_concepts_and_roles['roles']: logger.warning('Empty primitive roles')
+    return o2d_concepts_and_roles
 
 
 if __name__ == '__main__':
@@ -1012,9 +1002,9 @@ if __name__ == '__main__':
             logger.error(f"Circular deferrals in '{symb2spatial_filename}'")
             exit(-1)
 
-    # get list of primitive concepts/roles
-    primitives = get_primitives(symb2spatial)
-    logger.info(f"Primitives: raw={primitives['raw']}, concepts={primitives['concepts']}, roles={primitives['roles']}")
+    # get list of O2D concepts/roles
+    o2d_concepts_and_roles = get_o2d_concepts_and_roles(symb2spatial)
+    logger.info(f"O2D: raw={o2d_concepts_and_roles['raw']}, concepts={o2d_concepts_and_roles['concepts']}, roles={o2d_concepts_and_roles['roles']}")
 
     # load/process PDDL files
     start_time = timer()
@@ -1044,14 +1034,14 @@ if __name__ == '__main__':
     # get O2D states
     start_time = timer()
     logger.info(colored(f'Generate O2D states...', 'red', attrs = [ 'bold' ]))
-    states, states_dict, o2d_states, offsets = get_o2d_states(problems, transitions, symb2spatial, primitives)
+    states, states_dict, o2d_states, offsets = get_o2d_states(problems, transitions, symb2spatial, o2d_concepts_and_roles)
     elapsed_time = timer() - start_time
     logger.info(colored(f'{len(o2d_states)} state(s) in {sum(map(lambda x: len(x), transitions))} edge(s) in {elapsed_time:.3f} second(s)', 'blue'))
 
     # generate predicates
     start_time = timer()
     logger.info(colored(f'Generate predicates...', 'red', attrs = [ 'bold' ]))
-    roles, concepts, predicates = generate_predicates(primitives, o2d_states, args.max_complexity, args.complexity_measure)
+    roles, concepts, predicates = generate_predicates(o2d_concepts_and_roles, o2d_states, args.max_complexity, args.complexity_measure)
     elapsed_time = timer() - start_time
     logger.info(colored(f'[max-complexity={args.max_complexity}] {len(roles)} role(s), {len(concepts)} concept(s), and {len(predicates)} predicate(s) in {elapsed_time:.3f} second(s)', 'blue'))
 
