@@ -1,6 +1,6 @@
 { "blocks3ops" :
     { "constants"  : ["rectangle", "t"],
-      "primitives" : [],
+      "o2d"        : ["table/1", "block/1", "below/2", "smaller/2", "shape/2"],
       "facts"      : [ ["table",["t"]] ],
       "rules"      : { "block/1"      : [ ["block(X)",           ["ontable(X)"]],
                                           ["block(X)",           ["on(X,Y)"]] ],
@@ -12,7 +12,7 @@
                      } },
   "blocks4ops" :
     { "constants"  : ["rectangle", "r", "t"],
-      "primitives" : [],
+      "o2d"        : ["robot/1", "table/1", "block/1", "overlap/2", "below/2", "smaller/2", "shape/2"],
       "facts"      : [ ["robot",["r"]], ["table",["t"]] ],
       "rules"      : { "block/1"      : [ ["block(X)",           ["ontable(X)"]],
                                           ["block(X)",           ["on(X,Y)"]] ],
@@ -27,24 +27,26 @@
                        "shape/2"      : [ ["shape(X,rectangle)", ["object(X)"]] ]
                      } },
   "hanoi1op" :
-    { "constants" : ["rectangle"],
-      "rules"     : { "overlap"    : [ ["overlap(X,Y)",       ["disk(X)", "peg(Y)", "on(X,Y)"]],
-                                       ["overlap(Y,X)",       ["overlap(X,Y)"]] ],
-                      "below"      : [ ["below(X,Y)",         ["on(Y,X)", "disk(X)", "disk(Y)"]],
-                                       ["below(X,Y)",         ["on(Y,X)", "peg(X)", "disk(Y)"]] ],
-                      "shape"      : [ ["shape(X,rectangle)", ["object(X)"]] ]
-                    } },
+    { "constants"  : ["rectangle"],
+      "o2d"        : ["smaller/2", "overlap/2", "below/2", "shape/2"],
+      "rules"      : { "overlap/2"    : [ ["overlap(X,Y)",       ["disk(X)", "peg(Y)", "on(X,Y)"]],
+                                          ["overlap(Y,X)",       ["overlap(X,Y)"]] ],
+                       "below/2"      : [ ["below(X,Y)",         ["on(Y,X)", "disk(X)", "disk(Y)"]],
+                                          ["below(X,Y)",         ["on(Y,X)", "peg(X)", "disk(Y)"]] ],
+                       "shape/2"      : [ ["shape(X,rectangle)", ["object(X)"]] ]
+                     } },
   "hanoi4ops" : { "defer-to" : "hanoi1op" },
   "slidingtile" :
-    { "constants" : ["rectangle"],
-      "rules"     : { "cell"       : [ ["cell(X)",            ["position(X)"]] ],
-                      "overlap"    : [ ["overlap(X,Y)",       ["at(X,Y)"]],
-                                       ["overlap(Y,X)",       ["overlap(X,Y)"]] ],
-                      "shape"      : [ ["shape(X,rectangle)", ["object(X)"]] ]
-                    } },
+    { "constants"  : ["rectangle"],
+      "o2d"        : ["tile/1", "left/2", "below/2", "cell/1", "overlap/2", "shape/2"],
+      "rules"      : { "cell/1"       : [ ["cell(X)",            ["position(X)"]] ],
+                       "overlap/2"    : [ ["overlap(X,Y)",       ["at(X,Y)"]],
+                                          ["overlap(Y,X)",       ["overlap(X,Y)"]] ],
+                       "shape/2"      : [ ["shape(X,rectangle)", ["object(X)"]] ]
+                     } },
   "grid" :
     { "constants"  : ["r"],
-      "primitives" : [ "left/2", "below/2", "key/1" ],
+      "o2d"        : ["key/1", "left/2", "below/2", "robot/1", "cell/1", "lockedcell/1", "overlap/2", "smaller/2", "shape/2"],
       "facts"      : [ ["robot",["r"]] ],
       "rules"      : { "cell/1"       : [ ["cell(X)",            ["place(X)", "open(X)"]] ],
                        "lockedcell/1" : [ ["lockedcell(X)",      ["locked(X)"]] ],
@@ -55,26 +57,24 @@
                                           ["smaller(X,Y)",       ["key(X)", "place(Y)"]],
                                           ["smaller(X,Z)",       ["smaller(X,Y)", "smaller(Y,Z)"]] ],
                        "shape/2"      : [ ["shape(X,S)",         ["lock_shape(X,S)"]],
-                                          ["shape(X,S)",         ["key_shape(X,S)"]] ],
-                       "shape_form/1" : [ ["shape_form(S)",      ["objshape(S)"]] ]
+                                          ["shape(X,S)",         ["key_shape(X,S)"]] ]
                      } },
   "grid2" : { "defer-to" : "grid" },
   "grid3" : { "defer-to" : "grid" },
   "sokoban1" :
-    { "constants" : ["sokoban1", "rectangle", "sokoshape"],
-      "rules"     : { "cell"       : [ ["cell(X)",            ["leftof(X,Y)"]],
-                                       ["cell(Y)",            ["leftof(X,Y)"]],
-                                       ["cell(X)",            ["below(X,Y)"]],
-                                       ["cell(Y)",            ["below(X,Y)"]],
-                                       ["cell(Y)",            ["at(X,Y)"]]
-                                     ],
-                      "overlap"    : [ ["overlap(X,Y)",       ["at(X,Y)"]],
-                                       ["overlap(Y,X)",       ["overlap(X,Y)"]] ],
-                      "left"       : [ ["left(X,Y)",          ["leftof(X,Y)"]] ],
-                      "shape"      : [ ["shape(X,sokoshape)", ["sokoban(X)"]],
-                                       ["shape(X,rectangle)", ["cell(X)"]],
-                                       ["shape(X,rectangle)", ["crate(X)"]] ]
-                    } },
+    { "constants"  : ["sokoban1", "rectangle", "sokoshape"],
+      "o2d"        : ["crate/1", "sokoban/1", "left/2", "below/2", "cell/1", "overlap/2", "shape/2"],
+      "rules"      : { "cell/1"       : [ ["cell(X)",            ["left(X,Y)"]],
+                                          ["cell(Y)",            ["left(X,Y)"]],
+                                          ["cell(X)",            ["below(X,Y)"]],
+                                          ["cell(Y)",            ["below(X,Y)"]],
+                                          ["cell(Y)",            ["at(X,Y)"]] ],
+                       "overlap/2"    : [ ["overlap(X,Y)",       ["at(X,Y)"]],
+                                          ["overlap(Y,X)",       ["overlap(X,Y)"]] ],
+                       "shape/2"      : [ ["shape(X,sokoshape)", ["sokoban(X)"]],
+                                          ["shape(X,rectangle)", ["cell(X)"]],
+                                          ["shape(X,rectangle)", ["crate(X)"]] ]
+                     } },
   "sokoban2" : { "defer-to" : "sokoban1" }
 }
 
