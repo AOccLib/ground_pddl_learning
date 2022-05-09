@@ -970,11 +970,11 @@ if __name__ == '__main__':
     parser.add_argument('--complexity-measure', dest='complexity_measure', type=str, default=default_complexity_measure, help=f'complexity measure (either sum or height, default={default_complexity_measure})')
     parser.add_argument('--max-complexity', dest='max_complexity', type=int, default=default_max_complexity, help=f'max complexity for construction of concepts and rules (0=no limit, default={default_max_complexity})')
     parser.add_argument('--symb2spatial', dest='symb2spatial', type=str, default=default_symb2spatial, help=f'symb2spatial file (default={default_symb2spatial})')
-    parser.add_argument('domain', type=str, help='domain path')
+    parser.add_argument('path', type=str, help="path to folder containing 'domain.pddl' and .pddl problem files (path name used as key into symb2spatial registry)")
     args = parser.parse_args()
 
     # setup domain path and name
-    domain_path = Path(args.domain)
+    domain_path = Path(args.path)
     domain_name = domain_path.name
 
     # create output folder`
