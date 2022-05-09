@@ -8,10 +8,13 @@ import signal, argparse, re
 import json
 import logging
 
-#from pyperplan.planner import _parse, _ground
-#from pyperplan.search import searchspace
-from pyperplan.src.pyperplan.planner import _parse, _ground
-from pyperplan.src.pyperplan.search import searchspace
+from sys import path as sys_path
+sys_path.append('../../pyperplan')
+from pyperplan.planner import _parse, _ground
+from pyperplan.search import searchspace
+#from pyperplan.src.pyperplan.planner import _parse, _ground
+#from pyperplan.src.pyperplan.search import searchspace
+
 from collections import deque
 
 def get_logger(name : str, log_file : Path, level = logging.INFO):
@@ -717,6 +720,7 @@ def construct_map_function(symb2spatial : dict, objects):
         if objtype not in object_dict: object_dict[objtype] = set()
         object_dict['object'].add((obj,))
         object_dict[objtype].add((obj,))
+    logger.info(object_dict)
 
     def map_func(state):
         ext_state = get_dict_from_state(state)
@@ -778,15 +782,17 @@ def get_o2d_states(problems, transitions : List[list], symb2spatial : dict, o2d_
 
 # Planner for calculating reachable states
 def get_PDDL_files(path : Path):
-    files = sorted([ fname for fname in path.iterdir() if fname.is_file() and fname.name[-5:] == '.pddl' ])
+    files = sorted([ fname for fname in path.iterdir() if fname.is_file() and fname.name.endswith('.pddl') ])
     domain_filenames = [ fname for fname in files if fname.name == 'domain.pddl' ]
     problem_filenames = [ fname for fname in files if fname.name != 'domain.pddl' ]
     assert len(domain_filenames) == 1
     return domain_filenames[0], problem_filenames
 
 def get_planning_tasks(domain_filename, problem_filenames):
+    remove_statics_from_initial_state = False
+    remove_irrelevant_operators = False
     problems = [ _parse(str(domain_filename), str(fname)) for fname in problem_filenames ]
-    tasks = [ _ground(problem) for problem in problems ]
+    tasks = [ _ground(problem, remove_statics_from_initial_state, remove_irrelevant_operators) for problem in problems ]
     return problems, tasks
 
 def get_planning_transitions(problems, tasks):
