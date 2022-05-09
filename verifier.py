@@ -23,7 +23,7 @@ def verify_node(ground_model : dict, inst : int, src_index : int, f_nodes : List
     indices_appl_actions = [ i for i in range(len(gactions_r)) if src_index in gactions_r[i]['appl'] ]
     appl_actions = [ (i, gactions_r[i]) for i in indices_appl_actions ]
     appl_actions = [ f"{i}.{gaction['label']}({','.join(gaction['args'])})" for i, gaction in appl_actions ]
-    logger.info(f'Inst={inst}, node={src_index}, appl={appl_actions}')
+    logger.debug(f'Inst={inst}, node={src_index}, appl={appl_actions}')
 
     transitions, transitions_without_args, err_transitions = [], set(), []
     for i in indices_appl_actions:
