@@ -524,7 +524,7 @@ tlabelR(I,(R1,R2),A) :- tlabel(I,(S1,S2),A), repr(I,R1,S1), repr(I,R2,S2).
 
 % No self loops or parallel edges in abstraction
 :- tlabelR(I,(R,R),A).
-:- tlabelR(I,(R1,R2),A), tlabel(I,(R1,R2),B), A != B. % labels are symbolic so can't use '<'
+:- tlabelR(I,(R1,R2),A), tlabelR(I,(R1,R2),B), A != B. % labels are symbolic so can't use 'A < B'
 
 % F1. Two different representatives are in different equivalence classes
 :- repr(I,R1), repr(I,R2), R1 < R2, fval(I,(P,OO),R1,V) : fval(I,(P,OO),R2,V), pred(P), not f_static(I,P).
@@ -640,7 +640,6 @@ less(V,V+1,A,I,P,2) :- V = 1..max_action_arity-1, action(A), I = 1..2, pred(P),
 #show prec/3.
 #show eff/3.
 
-%#show equiv/3.
 #show repr/2.
 #show repr/3.
 #show tlabelR/3.
