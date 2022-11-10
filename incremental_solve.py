@@ -63,7 +63,7 @@ def get_aws_instance(fname : Path) -> None:
         fd.flush()
 
 def get_lp_files(path : Path, exclude_regexes : List[str] = []) -> List[str]:
-    files = [ fname for fname in path.iterdir() if fname.is_file() and fname.endswith('.lp') ]
+    files = [ fname for fname in path.iterdir() if fname.is_file() and str(fname).endswith('.lp') ]
     if exclude_regexes:
         raw_regex = '(%s)' % '|'.join(exclude_regexes)
         regex = re.compile(raw_regex)
@@ -308,7 +308,7 @@ if __name__ == '__main__':
             train_path = domain / 'train'
             if train_path.exists():
                 for fname in train_path.iterdir():
-                    if fname.endswith('.lp'):
+                    if str(fname).endswith('.lp'):
                         print(f'File copy {fname} to {solve_path}')
                         file_copy(fname, solve_path)
 

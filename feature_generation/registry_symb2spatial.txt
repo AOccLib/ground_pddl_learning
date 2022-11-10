@@ -92,6 +92,25 @@
                                           ["shape(X,rectangle)", ["cell(X)"]],
                                           ["shape(X,rectangle)", ["crate(X)"]] ]
                      } },
-  "sokoban2" : { "defer-to" : "sokoban1" }
-}
+  "sokoban2" : { "defer-to" : "sokoban1" },
+  "gripper" :
+    { "constants"  : ["robot","leftgrip","rightgrip","rr","lr","circleshape","rectangle","robotshape","grippershape"],
+      "o2d"        : ["robot/1", "gripper/1", "ball/1", "room/1", "left/2", "below/2", "overlap/2", "smaller/2", "shape/2"],
+      "facts"      : [ ["robot",["robot"]], ["gripper",["leftgrip"]], ["gripper",["rightgrip"]], ["room",["rr"]], ["room",["lr"]], ["left",["lr","rr"]] ],
+      "rules"      : { 
+                       "overlap/2"    : [ ["overlap(X,robot)",   ["at_robby(X)"]],
+                                          ["overlap(X,Y)",       ["at(X,Y)"]],
+                                          ["overlap(X,Y)",       ["carry(X,Y)"]],
+                                          ["overlap(X,robot)",   ["carry(X,Y)"]],
+                                          ["overlap(X,Z)",       ["carry(X,Y)", "at_robby(Z)"]],
+                                          ["overlap(Y,X)",       ["overlap(X,Y)"]] ],
+                       "smaller/2"    : [ ["smaller(X,Y)",       ["robot(X)", "room(Y)"]],
+                                          ["smaller(X,Y)",       ["gripper(X)", "robot(Y)"]],
+                                          ["smaller(X,Y)",       ["ball(X)", "gripper(Y)"]],
+                                          ["smaller(X,Z)",       ["smaller(X,Y)", "smaller(Y,Z)"]] ],
+                       "shape/2"      : [ ["shape(X,circleshape)",         ["ball(X)"]],
+                                          ["shape(X,grippershape)",         ["gripper(X)"]],
+                                          ["shape(X,robotshape)",         ["robot(X)"]],
+                                          ["shape(X,rectangle)",         ["room(X)"]] ]
+                     } }}
 
