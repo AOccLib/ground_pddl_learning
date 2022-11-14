@@ -9,48 +9,28 @@
 		(left ?l ?r)
 		(lroom ?l)
 		(rroom ?r)
+		(neq ?l ?r)
 		)
 
-   (:action moveright
+    (:action move
        :parameters  (?from ?to)
-       :precondition (and  (room ?from) (room ?to) (at_robby ?from) (left ?from ?to))
+       :precondition (and  (room ?from) (room ?to) (at_robby ?from) (neq ?from ?to))
        :effect (and  (at_robby ?to)
 		     (not (at_robby ?from))))
 
-   (:action moveleft
-       :parameters  (?from ?to)
-       :precondition (and  (room ?from) (room ?to) (at_robby ?from) (left ?to ?from))
-       :effect (and  (at_robby ?to)
-		     (not (at_robby ?from))))
 
-   (:action pickleft
+   (:action pick
        :parameters (?obj ?room ?gripper)
-       :precondition  (and  (ball ?obj) (lroom ?room) (gripper ?gripper)
+       :precondition  (and  (ball ?obj) (room ?room) (gripper ?gripper)
 			    (at ?obj ?room) (at_robby ?room) (free ?gripper))
        :effect (and (carry ?obj ?gripper)
-		    (not (at ?obj ?room)) 
-		    (not (free ?gripper))))
-
-   (:action pickright
-       :parameters (?obj ?room ?gripper)
-       :precondition  (and  (ball ?obj) (rroom ?room) (gripper ?gripper)
-			    (at ?obj ?room) (at_robby ?room) (free ?gripper))
-       :effect (and (carry ?obj ?gripper)
-		    (not (at ?obj ?room)) 
+		    (not (at ?obj ?room))
 		    (not (free ?gripper))))
 
 
-   (:action dropleft
+   (:action drop
        :parameters  (?obj  ?room ?gripper)
-       :precondition  (and  (ball ?obj) (lroom ?room) (gripper ?gripper)
-			    (carry ?obj ?gripper) (at_robby ?room))
-       :effect (and (at ?obj ?room)
-		    (free ?gripper)
-		    (not (carry ?obj ?gripper))))
-
-	   (:action dropright
-       :parameters  (?obj  ?room ?gripper)
-       :precondition  (and  (ball ?obj) (rroom ?room) (gripper ?gripper)
+       :precondition  (and  (ball ?obj) (room ?room) (gripper ?gripper)
 			    (carry ?obj ?gripper) (at_robby ?room))
        :effect (and (at ?obj ?room)
 		    (free ?gripper)

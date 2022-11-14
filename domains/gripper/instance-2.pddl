@@ -6,6 +6,8 @@
           (left lr rr)
           (lroom lr)
           (rroom rr)
+          (neq rr lr)
+          (neq lr rr)
           (ball ball2)
           (ball ball1)
           (at_robby lr)

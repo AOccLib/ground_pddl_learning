@@ -7,6 +7,8 @@
           (left lr rr)
           (lroom lr)
           (rroom rr)
+          (neq rr lr)
+          (neq lr rr)
           (ball ball4)
           (ball ball3)
           (ball ball2)
