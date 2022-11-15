@@ -183,6 +183,18 @@ class Concept(object):
     def clear_denotations(self):
         self.denotations = None
 
+class SquaredRole(Role):
+    def __init__(self, concept : Concept):
+        super().__init__()
+        self.concept = concept
+    def complexity(self):
+        return 1 + self.concept.complexity()
+    def __str__(self):
+        return f'squared_lp_{self.concept}_rp'
+    def denotation(self, state : O2DState):
+        concept = self.concept.denotation(state)
+        return set([ (x,x) for x in concept])
+
 class FalsumConcept(Concept):
     def __init__(self):
         super().__init__()
@@ -416,6 +428,57 @@ def roles_for_pair(pair, roles : List[Role], ctors):
             except AssertionError:
                 pass
     return new_roles
+def uses(concept_or_role1,concept_or_role2):
+    if type(concept_or_role1) in [O2DConcept,O2DRole,FalsumConcept,FalsumRole,VerumConcept]:
+        return concept_or_role1 is concept_or_role2
+    elif hasattr(concept_or_role1, 'concept_set'):
+        return any([x is concept_or_role2 for x in concept_or_role1.concept_set])
+    elif hasattr(concept_or_role1, 'concept') and hasattr(concept_or_role1, 'role'):
+        return concept_or_role1.concept is concept_or_role2 or concept_or_role1.role is concept_or_role2
+    elif hasattr(concept_or_role1, 'concept'):
+        return concept_or_role1.concept is concept_or_role2
+    elif hasattr(concept_or_role1, 'role'):
+        return concept_or_role1.role is concept_or_role2
+    elif hasattr(concept_or_role1, 'role1') and hasattr(concept_or_role1, 'role2'):
+        return concept_or_role1.role1 is concept_or_role2 or concept_or_role1.role2 is concept_or_role2
+
+def replace(concept_or_role,to_replace,replacement):
+    if issubclass(type(to_replace),Concept):
+        if hasattr(concept_or_role, 'concept_set'):
+            for x in concept_or_role.concept_set:
+                if x is to_replace:
+                    x = replacement
+        elif hasattr(concept_or_role, 'concept'):
+            if concept_or_role.concept is to_replace:
+                concept_or_role.concept = replacement
+    elif issubclass(type(to_replace),Role):
+        if hasattr(concept_or_role, 'role'):
+            if concept_or_role.role is to_replace:
+                concept_or_role.role = replacement
+        elif hasattr(concept_or_role, 'role1') and hasattr(concept_or_role, 'role2'):
+            if concept_or_role.role1 is to_replace:
+                concept_or_role.role1 = replacement
+            elif concept_or_role.role2 is to_replace:
+                concept_or_role.role2 = replacement
+
+def prune_and_replace(ext,i,j,new,discarded):
+    # if pruning needed, keep lower complexity role
+    existing = ext[i][j]
+    if existing.complexity() > new.complexity():
+        # iterate over existing concepts/roles
+        # if existing concept/role uses "existing", replace by "new"
+        for ext_concept_or_role in chain(*ext):
+            if uses(ext_concept_or_role, existing):
+                replace(ext_concept_or_role, existing, new)
+        logger.debug(
+            f'{new}/{new.complexity()} subsumed by {ext[i][j]}/{ext[i][j].complexity()}, keeping {new}')
+        discarded.append(existing)
+        ext[i][j] = new
+    else:
+        logger.debug(
+            f'{new}/{new.complexity()} subsumed by {ext[i][j]}/{ext[i][j].complexity()}, keeping {ext[i][j]}')
+        discarded.append(existing)
+
 
 def generate_roles(primitive : List[Role], states : List[O2DState], complexity_bound : int, ctors):
     roles = []
@@ -453,8 +516,8 @@ def generate_roles(primitive : List[Role], states : List[O2DState], complexity_b
                         fresh_roles.append(r)
                         role_names.add(str(r))
                     else:
-                        logger.debug(f'Role {r}/{r.complexity()} subsumed by {ext_roles[i][j]}/{ext_roles[i][j].complexity()}')
-                        discarded.append(r)
+                        # if pruning needed, keep lower complexity role
+                        prune_and_replace(ext_roles, i, j, r, discarded)
 
         # roles that require two roles but at least one role must be in new_roles
         new_indices = set(range(len(new_roles)))
@@ -472,8 +535,8 @@ def generate_roles(primitive : List[Role], states : List[O2DState], complexity_b
                             fresh_roles.append(r)
                             role_names.add(str(r))
                         else:
-                            logger.debug(f'Role {r}/{r.complexity()} subsumed by {ext_roles[i][j]}/{ext_roles[i][j].complexity()}')
-                            discarded.append(r)
+                            # if pruning needed, keep lower complexity role
+                            prune_and_replace(ext_roles, i, j, r, discarded)
 
         new_roles = fresh_roles
 
@@ -548,8 +611,8 @@ def generate_concepts(primitive : List[Concept], roles : List[Role], states : Li
                         fresh_concepts.append(c)
                         concept_names.add(str(c))
                     else:
-                        logger.debug(f'Concept {c}/{c.complexity()} subsumed by {ext_concepts[i][j]}/{ext_concepts[i][j].complexity()}')
-                        discarded.append(c)
+                        # if pruning needed, keep lower complexity concept
+                        prune_and_replace(ext_concepts, i, j, c, discarded)
 
         # concepts that require two concepts but at least one concept must be in new_concepts
         new_indices = set(range(len(new_concepts)))
@@ -568,13 +631,56 @@ def generate_concepts(primitive : List[Concept], roles : List[Role], states : Li
                             fresh_concepts.append(c)
                             concept_names.add(str(c))
                         else:
-                            logger.debug(f'Concept {c}/{c.complexity()} subsumed by {ext_concepts[i][j]}/{ext_concepts[i][j].complexity()}')
-                            discarded.append(c)
+                            # if pruning needed, keep lower complexity concept
+                            prune_and_replace(ext_concepts, i, j, c, discarded)
 
         new_concepts = fresh_concepts
 
     logger.info(colored(f'*** Concepts: #concepts={len(concepts)}, #subsumed={len(discarded)}', 'green'))
     return concepts
+
+def generate_squared_roles(concepts : List[Concept], states : List[O2DState], ext_roles: List[Role]):
+    roles = []
+    discarded = []
+    role_names = set()
+
+    # generate squared roles
+    # no need to prune, since concepts contains all-different concepts
+    for c in concepts:
+        r = SquaredRole(c)
+        r.set_denotations(states)
+        i, j = subsumed(r, [ roles, ext_roles ])
+        if i == -1:
+            logger.debug(colored(f'+++ New role {r}/{r.complexity()}', 'magenta'))
+            roles.append(r)
+            role_names.add(str(r))
+        else:
+            # if pruning needed, keep lower complexity role
+            prune_and_replace([ roles, ext_roles ], i, j, r, discarded)
+
+    logger.info(colored(f'*** Roles: #roles={len(roles)}, #subsumed={len(discarded)}', 'magenta'))
+    return roles
+
+def generate_composition_squared_roles(primitive : List[Role], squared : List[Role], states : List[O2DState], ext_roles: List[Role]):
+    roles = []
+    discarded = []
+    role_names = set()
+
+    # generate compositions of primitive roles and squared roles
+    for (r1,r2) in chain(product(squared,primitive),product(primitive,squared)):
+            r = CompositionRole(role1 = r1, role2=r2)
+            r.set_denotations(states)
+            i, j = subsumed(r, [ roles, ext_roles ])
+            if i == -1:
+                logger.debug(colored(f'+++ New role {r}/{r.complexity()}', 'magenta'))
+                roles.append(r)
+                role_names.add(str(r))
+            else:
+                # if pruning needed, keep lower complexity role
+                prune_and_replace([roles, ext_roles], i, j, r, discarded)
+
+    logger.info(colored(f'*** Roles: #roles={len(roles)}, #subsumed={len(discarded)}', 'magenta'))
+    return roles
 
 # Generation of predicates
 def generate_predicates(o2d_concepts_and_roles : dict, states : List[O2DState], max_complexity : int, complexity_measure : str):
@@ -593,6 +699,15 @@ def generate_predicates(o2d_concepts_and_roles : dict, states : List[O2DState], 
     concepts = generate_concepts(primitive_concepts, roles, states, max_complexity, concept_ctors)
     for i, c in enumerate(concepts):
         logger.debug(f'Concept c{i}.{c}/{c.complexity()}')
+
+    # Additional roles from:
+    # - roles from squared concepts, pruning duplicates
+    # - compositions of squared concepts and primitives
+
+    squared_roles = generate_squared_roles(concepts, states, roles)
+    roles.extend(squared_roles)
+    compositions_squared_roles = generate_composition_squared_roles(primitive_roles, squared_roles, states, roles)
+    roles.extend(compositions_squared_roles)
 
     # Predicates:
     # - nullary predicates: (C \subseteq C') for concepts C and C'
