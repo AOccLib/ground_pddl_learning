@@ -289,6 +289,7 @@ class DisjunctiveConcept(Concept):
 # Existential quantification
 class ERConcept(Concept):
     def __init__(self, role : Role, concept : Concept):
+        assert type(role) != FalsumRole
         assert type(concept) != FalsumConcept
         super().__init__()
         self.role = role
@@ -431,9 +432,15 @@ def generate_roles(primitive : List[Role], states : List[O2DState], complexity_b
             logger.debug(colored(f'+++ New role {r}/{r.complexity()}', 'magenta'))
             new_roles.append(r)
             role_names.add(str(r))
-        else:
+        elif r.complexity() >= new_roles[j].complexity():
             logger.debug(f'Role {r}/{r.complexity()} subsumed by {new_roles[j]}/{new_roles[j].complexity()}')
             discarded.append(r)
+        else:
+            logger.debug(f'Role {r}/{r.complexity()} subsumes previous {new_roles[j]}/{new_roles[j].complexity()}')
+            logger.debug(colored(f'+++ Remove role {new_roles[j]}/{new_roles[j].complexity()}', 'blue'))
+            logger.debug(colored(f'+++ New role {r}/{r.complexity()}', 'blue'))
+            discarded.append(new_roles[j])
+            new_roles[j] = r
 
     iteration = 0
     while new_roles:
@@ -452,9 +459,15 @@ def generate_roles(primitive : List[Role], states : List[O2DState], complexity_b
                         logger.debug(colored(f'+++ New role {r}/{r.complexity()}', 'magenta'))
                         fresh_roles.append(r)
                         role_names.add(str(r))
-                    else:
+                    elif r.complexity() >= ext_roles[i][j].complexity():
                         logger.debug(f'Role {r}/{r.complexity()} subsumed by {ext_roles[i][j]}/{ext_roles[i][j].complexity()}')
                         discarded.append(r)
+                    else:
+                        logger.debug(f'Role {r}/{r.complexity()} subsumes previous {ext_roles[i][j]}/{ext_roles[i][j].complexity()}')
+                        logger.debug(colored(f'+++ Remove role {ext_roles[i][j]}/{ext_roles[i][j].complexity()}', 'blue'))
+                        logger.debug(colored(f'+++ New role {r}/{r.complexity()}', 'blue'))
+                        discarded.append(ext_roles[i][j])
+                        ext_roles[i][j] = r
 
         # roles that require two roles but at least one role must be in new_roles
         new_indices = set(range(len(new_roles)))
@@ -471,9 +484,15 @@ def generate_roles(primitive : List[Role], states : List[O2DState], complexity_b
                             logger.debug(colored(f'+++ New role {r}/{r.complexity()}', 'magenta'))
                             fresh_roles.append(r)
                             role_names.add(str(r))
-                        else:
+                        elif r.complexity() >= ext_roles[i][j].complexity():
                             logger.debug(f'Role {r}/{r.complexity()} subsumed by {ext_roles[i][j]}/{ext_roles[i][j].complexity()}')
                             discarded.append(r)
+                        else:
+                            logger.debug(f'Role {r}/{r.complexity()} subsumes previous {ext_roles[i][j]}/{ext_roles[i][j].complexity()}')
+                            logger.debug(colored(f'+++ Remove role {ext_roles[i][j]}/{ext_roles[i][j].complexity()}', 'blue'))
+                            logger.debug(colored(f'+++ New role {r}/{r.complexity()}', 'blue'))
+                            discarded.append(ext_roles[i][j])
+                            ext_roles[i][j] = r
 
         new_roles = fresh_roles
 
@@ -526,9 +545,15 @@ def generate_concepts(primitive : List[Concept], roles : List[Role], states : Li
             logger.debug(colored(f'+++ New concept {c}/{c.complexity()}', 'green'))
             new_concepts.append(c)
             concept_names.add(str(c))
-        else:
+        elif c.complexity() >= new_concepts[j].complexity():
             logger.debug(f'Concept {c}/{c.complexity()} subsumed by {new_concepts[j]}/{new_concepts[j].complexity()}')
             discarded.append(c)
+        else:
+            logger.debug(f'Concept {c}/{c.complexity()} subsumes previous {new_concepts[j]}/{new_concepts[j].complexity()}')
+            logger.debug(colored(f'+++ Remove concept {new_concepts[j]}/{new_concepts[j].complexity()}', 'blue'))
+            logger.debug(colored(f'+++ New concept {c}/{c.complexity()}', 'blue'))
+            discarded.append(new_concepts[j])
+            new_concepts[j] = c
 
     iteration = 0
     while new_concepts:
@@ -547,9 +572,15 @@ def generate_concepts(primitive : List[Concept], roles : List[Role], states : Li
                         logger.debug(colored(f'+++ New concept {c}/{c.complexity()}', 'green'))
                         fresh_concepts.append(c)
                         concept_names.add(str(c))
-                    else:
+                    elif c.complexity() >= ext_concepts[i][j].complexity():
                         logger.debug(f'Concept {c}/{c.complexity()} subsumed by {ext_concepts[i][j]}/{ext_concepts[i][j].complexity()}')
                         discarded.append(c)
+                    else:
+                        logger.debug(f'Concept {c}/{c.complexity()} subsumes previous {ext_concepts[i][j]}/{ext_concepts[i][j].complexity()}')
+                        logger.debug(colored(f'+++ Remove concept {ext_concepts[i][j]}/{ext_concepts[i][j].complexity()}', 'blue'))
+                        logger.debug(colored(f'+++ New concept {c}/{c.complexity()}', 'blue'))
+                        discarded.append(ext_concepts[i][j])
+                        ext_concepts[i][j] = c
 
         # concepts that require two concepts but at least one concept must be in new_concepts
         new_indices = set(range(len(new_concepts)))
@@ -567,9 +598,15 @@ def generate_concepts(primitive : List[Concept], roles : List[Role], states : Li
                             logger.debug(colored(f'+++ New concept {c}/{c.complexity()}', 'green'))
                             fresh_concepts.append(c)
                             concept_names.add(str(c))
-                        else:
+                        elif c.complexity() >= ext_concepts[i][j].complexity():
                             logger.debug(f'Concept {c}/{c.complexity()} subsumed by {ext_concepts[i][j]}/{ext_concepts[i][j].complexity()}')
                             discarded.append(c)
+                        else:
+                            logger.debug(f'Concept {c}/{c.complexity()} subsumes previous {ext_concepts[i][j]}/{ext_concepts[i][j].complexity()}')
+                            logger.debug(colored(f'+++ Remove concept {ext_concepts[i][j]}/{ext_concepts[i][j].complexity()}', 'blue'))
+                            logger.debug(colored(f'+++ New concept {c}/{c.complexity()}', 'blue'))
+                            discarded.append(ext_concepts[i][j])
+                            ext_concepts[i][j] = c
 
         new_concepts = fresh_concepts
 
