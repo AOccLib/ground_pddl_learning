@@ -428,6 +428,7 @@ def roles_for_pair(pair, roles : List[Role], ctors):
             except AssertionError:
                 pass
     return new_roles
+
 def uses(concept_or_role1,concept_or_role2):
     if type(concept_or_role1) in [O2DConcept,O2DRole,FalsumConcept,FalsumRole,VerumConcept]:
         return concept_or_role1 is concept_or_role2

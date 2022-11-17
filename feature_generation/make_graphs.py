@@ -1073,3 +1073,4 @@ if __name__ == '__main__':
 
     elapsed_time = timer() - entry_time
     logger.info(colored(f'All tasks completed in {elapsed_time:.3f} second(s)', 'blue'))
+
