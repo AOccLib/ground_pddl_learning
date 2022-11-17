@@ -304,6 +304,61 @@ class ERConcept(Concept):
         concept = self.concept.denotation(state)
         return set([ x for (x,y) in role if y in concept ])
 
+# Role restrictions (full, left and right) using concepts
+class FullRestrictionRole(Role):
+    def __init__(self, role : Role, lconcept : Concept, rconcept : Concept):
+        assert type(role) != FalsumRole
+        assert type(lconcept) not in [ FalsumConcept, VerumConcept ]
+        assert type(rconcept) not in [ FalsumConcept, VerumConcept ]
+        super().__init__()
+        self.role = role
+        self.lconcept = lconcept
+        self.rconcept = rconcept
+    def complexity(self):
+        return 1 + self.role.complexity() + self.lconcept.complexity() + self.rconcept.complexity()
+    def __str__(self):
+        return f'fr_lp_{self.lconcept}_sep_{self.role}_sep_{self.rconcept}_rp'
+    def denotation(self, state : O2DState):
+        # FR[LC.R.RC] = { (x,y) : R(x,y) & LC(x) & RC(y) }
+        role = self.role.denotation(state)
+        lconcept = self.lconcept.denotation(state)
+        rconcept = self.rconcept.denotation(state)
+        return set([ (x,y) for (x,y) in role if x in lconcept and y in rconcept ])
+
+class RightRestrictionRole(Role):
+    def __init__(self, role : Role, rconcept : Concept):
+        assert type(role) != FalsumRole
+        assert type(rconcept) not in [ FalsumConcept, VerumConcept ]
+        super().__init__()
+        self.role = role
+        self.rconcept = rconcept
+    def complexity(self):
+        return 1 + self.role.complexity() + self.rconcept.complexity()
+    def __str__(self):
+        return f'rr_lp_{self.role}_sep_{self.rconcept}_rp'
+    def denotation(self, state : O2DState):
+        # RR[R.RC] = { (x,y) : R(x,y) & RC(y) }
+        role = self.role.denotation(state)
+        rconcept = self.rconcept.denotation(state)
+        return set([ (x,y) for (x,y) in role if y in rconcept ])
+
+class LeftRestrictionRole(Role):
+    def __init__(self, role : Role, lconcept : Concept):
+        assert type(role) != FalsumRole
+        assert type(lconcept) not in [ FalsumConcept, VerumConcept ]
+        super().__init__()
+        self.role = role
+        self.lconcept = lconcept
+    def complexity(self):
+        return 1 + self.role.complexity() + self.lconcept.complexity()
+    def __str__(self):
+        return f'lr_lp_{self.role}_sep_{self.lconcept}_rp'
+    def denotation(self, state : O2DState):
+        # LR[LC.R] = { (x,y) : R(x,y) & LC(x) }
+        role = self.role.denotation(state)
+        lconcept = self.lconcept.denotation(state)
+        return set([ (x,y) for (x,y) in role if x in lconcept ])
+
 # Predicates:
 # - nullary predicates: (C \subseteq C') for concepts C and C'
 # - unary predicates: C(x) for concept C
@@ -613,6 +668,58 @@ def generate_concepts(primitive : List[Concept], roles : List[Role], states : Li
     logger.info(colored(f'*** Concepts: #concepts={len(concepts)}, #subsumed={len(discarded)}', 'green'))
     return concepts
 
+def generate_role_restrictions(roles : List[Role], concepts : List[Concept], primitive_concepts : List[Concept], states : List[O2DState], complexity_bound : int):
+    new_roles = []
+    discarded = []
+    role_names = set()
+    for role in roles:
+        if type(role) == FalsumRole: continue
+        for concept in concepts:
+            if type(concept) in [ FalsumConcept, VerumConcept ]: continue
+            #logger.info(f"Trying role '{role}' with concept '{concept}'")
+            for r in [ RightRestrictionRole(role, concept), LeftRestrictionRole(role, concept) ]:
+                if r.complexity() <= complexity_bound:
+                    r.set_denotations(states)
+                    ext_roles = [ new_roles, roles ]
+                    i, j = subsumed(r, ext_roles)
+                    if i == -1:
+                        logger.info(colored(f'+++ New role {r}/{r.complexity()}', 'magenta'))
+                        new_roles.append(r)
+                        role_names.add(str(r))
+                    elif r.complexity() >= ext_roles[i][j].complexity():
+                        logger.info(f'Role {r}/{r.complexity()} subsumed by {ext_roles[i][j]}/{ext_roles[i][j].complexity()}')
+                        discarded.append(r)
+                    else:
+                        logger.info(f'Role {r}/{r.complexity()} subsumes previous {ext_roles[i][j]}/{ext_roles[i][j].complexity()}')
+                        logger.info(colored(f'+++ Remove role {ext_roles[i][j]}/{ext_roles[i][j].complexity()}', 'blue'))
+                        logger.info(colored(f'+++ New role {r}/{r.complexity()}', 'blue'))
+                        discarded.append(ext_roles[i][j])
+                        ext_roles[i][j] = r
+
+        for lconcept, rconcept in product(primitive_concepts, primitive_concepts):
+            if type(lconcept) in [ FalsumConcept, VerumConcept ]: continue
+            if type(rconcept) in [ FalsumConcept, VerumConcept ]: continue
+            r = FullRestrictionRole(role, lconcept, rconcept)
+            if r.complexity() <= complexity_bound:
+                r.set_denotations(states)
+                ext_roles = [ new_roles, roles ]
+                i, j = subsumed(r, ext_roles)
+                if i == -1:
+                    logger.info(colored(f'+++ New role {r}/{r.complexity()}', 'magenta'))
+                    new_roles.append(r)
+                    role_names.add(str(r))
+                elif r.complexity() >= ext_roles[i][j].complexity():
+                    logger.info(f'Role {r}/{r.complexity()} subsumed by {ext_roles[i][j]}/{ext_roles[i][j].complexity()}')
+                    discarded.append(r)
+                else:
+                    logger.info(f'Role {r}/{r.complexity()} subsumes previous {ext_roles[i][j]}/{ext_roles[i][j].complexity()}')
+                    logger.info(colored(f'+++ Remove role {ext_roles[i][j]}/{ext_roles[i][j].complexity()}', 'blue'))
+                    logger.info(colored(f'+++ New role {r}/{r.complexity()}', 'blue'))
+                    discarded.append(ext_roles[i][j])
+                    ext_roles[i][j] = r
+
+    return new_roles
+
 # Generation of predicates
 def generate_predicates(o2d_concepts_and_roles : dict, states : List[O2DState], max_complexity : int, complexity_measure : str):
     # Roles
@@ -630,6 +737,9 @@ def generate_predicates(o2d_concepts_and_roles : dict, states : List[O2DState], 
     concepts = generate_concepts(primitive_concepts, roles, states, max_complexity, concept_ctors)
     for i, c in enumerate(concepts):
         logger.debug(f'Concept c{i}.{c}/{c.complexity()}')
+
+    # Restriction of roles
+    roles.extend(generate_role_restrictions(primitive_roles, concepts, primitive_concepts, states, 2 + max_complexity))
 
     # Predicates:
     # - nullary predicates: (C \subseteq C') for concepts C and C'
