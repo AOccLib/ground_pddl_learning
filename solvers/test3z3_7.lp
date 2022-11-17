@@ -379,7 +379,7 @@ fappl(I,A,(3,4),(O3,O4),S)     :- instance(I), action(A), a_arity(A,N), N >= 4, 
 % FACTORED next
 
 % Assumption: each edge (S1,S2) is labeled with unique action A, and maps to unique grounded action A(OO)
-:- tlabel(I,(S1,S2),A), tlabel(I,(S1,S2),B), A != B.
+:- tlabel(I,(S1,S2),A), tlabel(I,(S1,S2),B), A < B.
 
 % fnext(I,K,O,S1,S2) : for edge tlabel(I,(S1,S2),A), K-th argument of A(OO) is object O
 

@@ -406,7 +406,7 @@ fappl(I,A,(K1,K2),(O1,O2),S)   :- action(A), a_arity(A,N), N > 1, vtuple_pair(N,
 % FACTORED next
 
 % Assumption: each edge (S1,S2) is labeled with unique action A, and maps to unique grounded action A(OO)
-:- tlabel(I,(S1,S2),A), tlabel(I,(S1,S2),B), A != B.
+:- tlabel(I,(S1,S2),A), tlabel(I,(S1,S2),B), A < B.
 
 % fnext(I,K,O,S1,S2) : for edge tlabel(I,(S1,S2),A), K-th argument of A(OO) is object O
 
