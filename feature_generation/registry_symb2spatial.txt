@@ -103,6 +103,8 @@
                                           ["overlap(X,Y)",       ["carry(X,Y)"]],
                                           ["overlap(X,robot)",   ["carry(X,Y)"]],
                                           ["overlap(X,Z)",       ["carry(X,Y)", "at_robby(Z)"]],
+                                          ["overlap(X,robot)",   ["gripper(X)"]],
+                                          ["overlap(X,Y)",       ["gripper(X)", "at_robby(Y)"]],
                                           ["overlap(Y,X)",       ["overlap(X,Y)"]] ],
                        "smaller/2"    : [ ["smaller(X,Y)",       ["robot(X)", "room(Y)"]],
                                           ["smaller(X,Y)",       ["gripper(X)", "robot(Y)"]],
@@ -113,4 +115,3 @@
                                           ["shape(X,robotshape)",         ["robot(X)"]],
                                           ["shape(X,rectangle)",         ["room(X)"]] ]
                      } }}
-
