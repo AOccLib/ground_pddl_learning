@@ -14,7 +14,7 @@ from pyperplan.planner import _parse, _ground
 from pyperplan.search import searchspace
 #from pyperplan.src.pyperplan.planner import _parse, _ground
 #from pyperplan.src.pyperplan.search import searchspace
-from random import shuffle
+
 from collections import deque
 
 def get_logger(name : str, log_file : Path, level = logging.INFO):
@@ -289,6 +289,7 @@ class DisjunctiveConcept(Concept):
 # Existential quantification
 class ERConcept(Concept):
     def __init__(self, role : Role, concept : Concept):
+        assert type(role) != FalsumRole
         assert type(concept) != FalsumConcept
         super().__init__()
         self.role = role
@@ -302,6 +303,77 @@ class ERConcept(Concept):
         role = self.role.denotation(state)
         concept = self.concept.denotation(state)
         return set([ x for (x,y) in role if y in concept ])
+
+
+class CardinalityConcept(Concept):
+    def __init__(self, role : Role, card: int):
+        assert type(role) != FalsumRole
+        super().__init__()
+        self.role = role
+        self.card = card
+    def complexity(self):
+        return 1 + self.role.complexity()
+    def __str__(self):
+        return f'card{self.card}_lp_{self.role}_rp'
+    def denotation(self, state : O2DState):
+        # E[R.C] = { x : there is y such that R(x,y) and C(y) }
+        role = self.role.denotation(state)
+        return set([ x for (x,y) in role if len([(a,b) for (a,b) in role if a == x ]) == self.card ])
+
+# Role restrictions (full, left and right) using concepts
+class FullRestrictionRole(Role):
+    def __init__(self, role : Role, lconcept : Concept, rconcept : Concept):
+        assert type(role) != FalsumRole
+        assert type(lconcept) not in [ FalsumConcept, VerumConcept ]
+        assert type(rconcept) not in [ FalsumConcept, VerumConcept ]
+        super().__init__()
+        self.role = role
+        self.lconcept = lconcept
+        self.rconcept = rconcept
+    def complexity(self):
+        return 1 + self.role.complexity() + self.lconcept.complexity() + self.rconcept.complexity()
+    def __str__(self):
+        return f'fr_lp_{self.lconcept}_sep_{self.role}_sep_{self.rconcept}_rp'
+    def denotation(self, state : O2DState):
+        # FR[LC.R.RC] = { (x,y) : R(x,y) & LC(x) & RC(y) }
+        role = self.role.denotation(state)
+        lconcept = self.lconcept.denotation(state)
+        rconcept = self.rconcept.denotation(state)
+        return set([ (x,y) for (x,y) in role if x in lconcept and y in rconcept ])
+
+class RightRestrictionRole(Role):
+    def __init__(self, role : Role, rconcept : Concept):
+        assert type(role) != FalsumRole
+        assert type(rconcept) not in [ FalsumConcept, VerumConcept ]
+        super().__init__()
+        self.role = role
+        self.rconcept = rconcept
+    def complexity(self):
+        return 1 + self.role.complexity() + self.rconcept.complexity()
+    def __str__(self):
+        return f'rr_lp_{self.role}_sep_{self.rconcept}_rp'
+    def denotation(self, state : O2DState):
+        # RR[R.RC] = { (x,y) : R(x,y) & RC(y) }
+        role = self.role.denotation(state)
+        rconcept = self.rconcept.denotation(state)
+        return set([ (x,y) for (x,y) in role if y in rconcept ])
+
+class LeftRestrictionRole(Role):
+    def __init__(self, role : Role, lconcept : Concept):
+        assert type(role) != FalsumRole
+        assert type(lconcept) not in [ FalsumConcept, VerumConcept ]
+        super().__init__()
+        self.role = role
+        self.lconcept = lconcept
+    def complexity(self):
+        return 1 + self.role.complexity() + self.lconcept.complexity()
+    def __str__(self):
+        return f'lr_lp_{self.role}_sep_{self.lconcept}_rp'
+    def denotation(self, state : O2DState):
+        # LR[LC.R] = { (x,y) : R(x,y) & LC(x) }
+        role = self.role.denotation(state)
+        lconcept = self.lconcept.denotation(state)
+        return set([ (x,y) for (x,y) in role if x in lconcept ])
 
 # Predicates:
 # - nullary predicates: (C \subseteq C') for concepts C and C'
@@ -431,9 +503,15 @@ def generate_roles(primitive : List[Role], states : List[O2DState], complexity_b
             logger.debug(colored(f'+++ New role {r}/{r.complexity()}', 'magenta'))
             new_roles.append(r)
             role_names.add(str(r))
-        else:
+        elif r.complexity() >= new_roles[j].complexity():
             logger.debug(f'Role {r}/{r.complexity()} subsumed by {new_roles[j]}/{new_roles[j].complexity()}')
             discarded.append(r)
+        else:
+            logger.debug(f'Role {r}/{r.complexity()} subsumes previous {new_roles[j]}/{new_roles[j].complexity()}')
+            logger.debug(colored(f'+++ Remove role {new_roles[j]}/{new_roles[j].complexity()}', 'blue'))
+            logger.debug(colored(f'+++ New role {r}/{r.complexity()}', 'blue'))
+            discarded.append(new_roles[j])
+            new_roles[j] = r
 
     iteration = 0
     while new_roles:
@@ -452,9 +530,15 @@ def generate_roles(primitive : List[Role], states : List[O2DState], complexity_b
                         logger.debug(colored(f'+++ New role {r}/{r.complexity()}', 'magenta'))
                         fresh_roles.append(r)
                         role_names.add(str(r))
-                    else:
+                    elif r.complexity() >= ext_roles[i][j].complexity():
                         logger.debug(f'Role {r}/{r.complexity()} subsumed by {ext_roles[i][j]}/{ext_roles[i][j].complexity()}')
                         discarded.append(r)
+                    else:
+                        logger.debug(f'Role {r}/{r.complexity()} subsumes previous {ext_roles[i][j]}/{ext_roles[i][j].complexity()}')
+                        logger.debug(colored(f'+++ Remove role {ext_roles[i][j]}/{ext_roles[i][j].complexity()}', 'blue'))
+                        logger.debug(colored(f'+++ New role {r}/{r.complexity()}', 'blue'))
+                        discarded.append(ext_roles[i][j])
+                        ext_roles[i][j] = r
 
         # roles that require two roles but at least one role must be in new_roles
         new_indices = set(range(len(new_roles)))
@@ -471,9 +555,15 @@ def generate_roles(primitive : List[Role], states : List[O2DState], complexity_b
                             logger.debug(colored(f'+++ New role {r}/{r.complexity()}', 'magenta'))
                             fresh_roles.append(r)
                             role_names.add(str(r))
-                        else:
+                        elif r.complexity() >= ext_roles[i][j].complexity():
                             logger.debug(f'Role {r}/{r.complexity()} subsumed by {ext_roles[i][j]}/{ext_roles[i][j].complexity()}')
                             discarded.append(r)
+                        else:
+                            logger.debug(f'Role {r}/{r.complexity()} subsumes previous {ext_roles[i][j]}/{ext_roles[i][j].complexity()}')
+                            logger.debug(colored(f'+++ Remove role {ext_roles[i][j]}/{ext_roles[i][j].complexity()}', 'blue'))
+                            logger.debug(colored(f'+++ New role {r}/{r.complexity()}', 'blue'))
+                            discarded.append(ext_roles[i][j])
+                            ext_roles[i][j] = r
 
         new_roles = fresh_roles
 
@@ -526,9 +616,15 @@ def generate_concepts(primitive : List[Concept], roles : List[Role], states : Li
             logger.debug(colored(f'+++ New concept {c}/{c.complexity()}', 'green'))
             new_concepts.append(c)
             concept_names.add(str(c))
-        else:
+        elif c.complexity() >= new_concepts[j].complexity():
             logger.debug(f'Concept {c}/{c.complexity()} subsumed by {new_concepts[j]}/{new_concepts[j].complexity()}')
             discarded.append(c)
+        else:
+            logger.debug(f'Concept {c}/{c.complexity()} subsumes previous {new_concepts[j]}/{new_concepts[j].complexity()}')
+            logger.debug(colored(f'+++ Remove concept {new_concepts[j]}/{new_concepts[j].complexity()}', 'blue'))
+            logger.debug(colored(f'+++ New concept {c}/{c.complexity()}', 'blue'))
+            discarded.append(new_concepts[j])
+            new_concepts[j] = c
 
     iteration = 0
     while new_concepts:
@@ -547,9 +643,15 @@ def generate_concepts(primitive : List[Concept], roles : List[Role], states : Li
                         logger.debug(colored(f'+++ New concept {c}/{c.complexity()}', 'green'))
                         fresh_concepts.append(c)
                         concept_names.add(str(c))
-                    else:
+                    elif c.complexity() >= ext_concepts[i][j].complexity():
                         logger.debug(f'Concept {c}/{c.complexity()} subsumed by {ext_concepts[i][j]}/{ext_concepts[i][j].complexity()}')
                         discarded.append(c)
+                    else:
+                        logger.debug(f'Concept {c}/{c.complexity()} subsumes previous {ext_concepts[i][j]}/{ext_concepts[i][j].complexity()}')
+                        logger.debug(colored(f'+++ Remove concept {ext_concepts[i][j]}/{ext_concepts[i][j].complexity()}', 'blue'))
+                        logger.debug(colored(f'+++ New concept {c}/{c.complexity()}', 'blue'))
+                        discarded.append(ext_concepts[i][j])
+                        ext_concepts[i][j] = c
 
         # concepts that require two concepts but at least one concept must be in new_concepts
         new_indices = set(range(len(new_concepts)))
@@ -567,19 +669,77 @@ def generate_concepts(primitive : List[Concept], roles : List[Role], states : Li
                             logger.debug(colored(f'+++ New concept {c}/{c.complexity()}', 'green'))
                             fresh_concepts.append(c)
                             concept_names.add(str(c))
-                        else:
+                        elif c.complexity() >= ext_concepts[i][j].complexity():
                             logger.debug(f'Concept {c}/{c.complexity()} subsumed by {ext_concepts[i][j]}/{ext_concepts[i][j].complexity()}')
                             discarded.append(c)
+                        else:
+                            logger.debug(f'Concept {c}/{c.complexity()} subsumes previous {ext_concepts[i][j]}/{ext_concepts[i][j].complexity()}')
+                            logger.debug(colored(f'+++ Remove concept {ext_concepts[i][j]}/{ext_concepts[i][j].complexity()}', 'blue'))
+                            logger.debug(colored(f'+++ New concept {c}/{c.complexity()}', 'blue'))
+                            discarded.append(ext_concepts[i][j])
+                            ext_concepts[i][j] = c
 
         new_concepts = fresh_concepts
 
     logger.info(colored(f'*** Concepts: #concepts={len(concepts)}, #subsumed={len(discarded)}', 'green'))
     return concepts
 
+def generate_role_restrictions(roles : List[Role], concepts : List[Concept], primitive_concepts : List[Concept], states : List[O2DState], complexity_bound : int):
+    new_roles = []
+    discarded = []
+    role_names = set()
+    for role in roles:
+        if type(role) == FalsumRole: continue
+        for concept in concepts:
+            if type(concept) in [ FalsumConcept, VerumConcept ]: continue
+            #logger.info(f"Trying role '{role}' with concept '{concept}'")
+            for r in [ RightRestrictionRole(role, concept), LeftRestrictionRole(role, concept) ]:
+                if r.complexity() <= complexity_bound:
+                    r.set_denotations(states)
+                    ext_roles = [ new_roles, roles ]
+                    i, j = subsumed(r, ext_roles)
+                    if i == -1:
+                        logger.info(colored(f'+++ New role {r}/{r.complexity()}', 'magenta'))
+                        new_roles.append(r)
+                        role_names.add(str(r))
+                    elif r.complexity() >= ext_roles[i][j].complexity():
+                        logger.info(f'Role {r}/{r.complexity()} subsumed by {ext_roles[i][j]}/{ext_roles[i][j].complexity()}')
+                        discarded.append(r)
+                    else:
+                        logger.info(f'Role {r}/{r.complexity()} subsumes previous {ext_roles[i][j]}/{ext_roles[i][j].complexity()}')
+                        logger.info(colored(f'+++ Remove role {ext_roles[i][j]}/{ext_roles[i][j].complexity()}', 'blue'))
+                        logger.info(colored(f'+++ New role {r}/{r.complexity()}', 'blue'))
+                        discarded.append(ext_roles[i][j])
+                        ext_roles[i][j] = r
+
+        for lconcept, rconcept in product(primitive_concepts, primitive_concepts):
+            if type(lconcept) in [ FalsumConcept, VerumConcept ]: continue
+            if type(rconcept) in [ FalsumConcept, VerumConcept ]: continue
+            r = FullRestrictionRole(role, lconcept, rconcept)
+            if r.complexity() <= complexity_bound:
+                r.set_denotations(states)
+                ext_roles = [ new_roles, roles ]
+                i, j = subsumed(r, ext_roles)
+                if i == -1:
+                    logger.info(colored(f'+++ New role {r}/{r.complexity()}', 'magenta'))
+                    new_roles.append(r)
+                    role_names.add(str(r))
+                elif r.complexity() >= ext_roles[i][j].complexity():
+                    logger.info(f'Role {r}/{r.complexity()} subsumed by {ext_roles[i][j]}/{ext_roles[i][j].complexity()}')
+                    discarded.append(r)
+                else:
+                    logger.info(f'Role {r}/{r.complexity()} subsumes previous {ext_roles[i][j]}/{ext_roles[i][j].complexity()}')
+                    logger.info(colored(f'+++ Remove role {ext_roles[i][j]}/{ext_roles[i][j].complexity()}', 'blue'))
+                    logger.info(colored(f'+++ New role {r}/{r.complexity()}', 'blue'))
+                    discarded.append(ext_roles[i][j])
+                    ext_roles[i][j] = r
+
+    return new_roles
+
 # Generation of predicates
 def generate_predicates(o2d_concepts_and_roles : dict, states : List[O2DState], max_complexity : int, complexity_measure : str):
     # Roles
-    role_ctors = [ ('Role', 'None', InverseRole), ('Role', 'Role', CompositionRole) ]
+    role_ctors = [ ('Role', 'None', InverseRole), ('Role', 'Role', CompositionRole)]
     primitive_roles = [ FalsumRole() ]
     primitive_roles.extend([ O2DRole(name) for name in o2d_concepts_and_roles['roles'] ])
     roles = generate_roles(primitive_roles, states, max_complexity, role_ctors)
@@ -587,12 +747,22 @@ def generate_predicates(o2d_concepts_and_roles : dict, states : List[O2DState], 
         logger.debug(f'Role r{i}.{r}/{r.complexity()}')
 
     # Concepts
-    concept_ctors = [ ('Concept', 'None', NegatedConcept), ('Concept', 'Concept', ConjunctiveConcept), ('Role', 'Concept', ERConcept) ]
-    primitive_concepts = [ FalsumConcept(), VerumConcept() ]
+    concept_ctors = [ ('Concept', 'None', NegatedConcept), ('Concept', 'Concept', ConjunctiveConcept), ('Role', 'Concept', ERConcept)]
+    primitive_concepts = [ FalsumConcept(), VerumConcept()]
     primitive_concepts.extend([ O2DConcept(name) for name in o2d_concepts_and_roles['concepts'] ])
     concepts = generate_concepts(primitive_concepts, roles, states, max_complexity, concept_ctors)
     for i, c in enumerate(concepts):
         logger.debug(f'Concept c{i}.{c}/{c.complexity()}')
+
+    cardinality_concepts = [CardinalityConcept(role,n) for role in primitive_roles for n in [1,2] if type(role) is not FalsumRole]
+    #primitive_concepts.extend(cardinality_concepts)
+
+    # Restriction of roles
+    roles.extend(generate_role_restrictions(primitive_roles, concepts, primitive_concepts+cardinality_concepts, states, 2 + max_complexity))
+
+    # Limited concept conjunctions: primitives + cardinality restrictions
+    concepts.extend(generate_concepts(primitive_concepts+cardinality_concepts, [], states, 2 + max_complexity, [('Concept', 'Concept', ConjunctiveConcept)]))
+
 
     # Predicates:
     # - nullary predicates: (C \subseteq C') for concepts C and C'
@@ -764,11 +934,7 @@ def get_o2d_states(problems, transitions : List[list], symb2spatial : dict, o2d_
         seen_states = set()
         states_dict.append(dict())
         offsets[i] = len(o2d_states)
-        if problems[i].domain.name == "blocks-slots":
-            # drop height and slot objects from state representation
-            objects = {k:problems[i].objects[k] for k in problems[i].objects if "s" not in k and "h" not in k}
-        else:
-            objects = problems[i].objects
+        objects = problems[i].objects
         map_func = construct_map_function(symb2spatial, objects)
         for (src, action, dst) in transitions[i]:
             for state in [src, dst]:
@@ -807,47 +973,23 @@ def get_planning_transitions(problems, tasks):
         assert len(transitions) == 1 + i
         initial_state = tasks[i].initial_state
         logger.debug(f'{problems[i].name}: initial-state={initial_state}')
+
         queue = deque()
         queue.append(searchspace.make_root_node(initial_state))
-        # we want one transition per hidden state
-        # so we keep track of which hidden states we have already visited
-        visited_hidden_states = []
-        # we want to sample only one o2d transition from each hidden state and each applicable action in the original domain (e.g., pickup(a))
-        # 'sampled' keeps track of this: each state is a key, whose values are already sampled actions
-        sampled = {}
-        if problems[i].domain.name == "blocks-slots":
-            while queue:
-                node = queue.popleft()
-                hidden_state = frozenset([p for p in node.state if "holding" in p or "on" in p])
-                if hidden_state not in visited_hidden_states:
-                    visited_hidden_states.append(hidden_state)
-                    if hidden_state not in sampled:
-                        sampled[hidden_state] = []
-                #logger.debug(f'{problems[i].name}: node dequeued: state={node.state}')
-                # sample one successor for each action
-                # done by randomly shuffling successors
-                # and sampling the first successor for each action that appears in the shuffled successor list
-                successors = tasks[i].get_successor_states(node.state)
-                shuffle(successors)
-                for operator, successor_state in successors:
-                    operator_type = operator.name.split(" ")[0].strip("(")
-                    if operator_type == "pickup" or operator_type == "putdown":
-                        operator_blocks = [obj.strip(")") for obj in operator.name.split(" ")[1:2]]
-                    else:
-                        operator_blocks = [obj.strip(")") for obj in operator.name.split(" ")[1:3]]
-                    # full operator is the ground action atom without the slot and height variables
-                    full_operator = f"({operator_type} {' '.join(operator_blocks)})"
-                    if full_operator not in sampled[hidden_state]:
-                        transition = (node.state, operator.name, successor_state)
-                        # duplicate detection
-                        if transition not in transitions[i]:
-                            queue.append(searchspace.make_child_node(node, operator, successor_state))
-                            transitions[i].append(transition)
-                            sampled[hidden_state].append(full_operator)
-                            # logger.debug(f'{problems[i].name}: state)
+        while queue:
+            node = queue.popleft()
+            #logger.debug(f'{problems[i].name}: node dequeued: state={node.state}')
+            for operator, successor_state in tasks[i].get_successor_states(node.state):
+                transition = (node.state, operator.name, successor_state)
 
-            elapsed_time = timer() - start_time
-            logger.info(f'{problems[i].name}: {len(transitions[i])} edge(s) in {elapsed_time:.3f} second(s)')
+                # duplicate detection
+                if transition not in transitions[i]:
+                    queue.append(searchspace.make_child_node(node, operator, successor_state))
+                    transitions[i].append(transition)
+                    #logger.debug(f'{problems[i].name}: state={node.state}, operator={operator.name}, successor={successor_state}')
+
+        elapsed_time = timer() - start_time
+        logger.info(f'{problems[i].name}: {len(transitions[i])} edge(s) in {elapsed_time:.3f} second(s)')
 
     return transitions
 
@@ -994,10 +1136,10 @@ if __name__ == '__main__':
 
     # argument parser
     parser = argparse.ArgumentParser(description='Incremental learning of grounded PDDL models.')
-    parser.add_argument('--debug-level', dest='debug_level', type=int, default=default_debug_level, help=f'set debug level (default={default_debug_level})')
-    parser.add_argument('--complexity-measure', dest='complexity_measure', type=str, default=default_complexity_measure, help=f'complexity measure (either sum or height, default={default_complexity_measure})')
-    parser.add_argument('--max-complexity', dest='max_complexity', type=int, default=default_max_complexity, help=f'max complexity for construction of concepts and rules (0=no limit, default={default_max_complexity})')
-    parser.add_argument('--symb2spatial', dest='symb2spatial', type=str, default=default_symb2spatial, help=f'symb2spatial file (default={default_symb2spatial})')
+    parser.add_argument('--debug-level', dest='debug_level', type=int, default=default_debug_level, help=f"set debug level (default={default_debug_level})")
+    parser.add_argument('--complexity-measure', dest='complexity_measure', type=str, choices=['sum', 'height'], default=default_complexity_measure, help=f"complexity measure (either sum or height, default='{default_complexity_measure}')")
+    parser.add_argument('--max-complexity', dest='max_complexity', type=int, default=default_max_complexity, help=f"max complexity for construction of concepts and rules (0=no limit, default={default_max_complexity})")
+    parser.add_argument('--symb2spatial', dest='symb2spatial', type=str, default=default_symb2spatial, help=f"symb2spatial file (default='{default_symb2spatial}')")
     parser.add_argument('path', type=str, help="path to folder containing 'domain.pddl' and .pddl problem files (path name used as key into symb2spatial registry)")
     args = parser.parse_args()
 

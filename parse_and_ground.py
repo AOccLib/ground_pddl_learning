@@ -3,6 +3,7 @@ from sys import stdout
 from pathlib import Path
 from itertools import product
 from typing import List
+from termcolor import colored
 
 def read_file(filename : Path, logger) -> List[str]:
     lines = [ line for line in filename.open('r') ]
