@@ -52,11 +52,11 @@ The folder ``solvers/`` contains different .lp solvers. The default solver is ``
 ### Running a single experiment
 To run a single experiment for one of the domains with the incremental engine and the program ``solvers/solver.lp`` do:
 ```bash
-python3 incremental_solve.py solvers/solver.lp graphs/<domain> --results <results>
+python3 incremental_solver.py solvers/solver.lp graphs/<domain> --results <results>
 ```
 Results are stored in ``<results>``. Possible options for the incremental solver are:
 ```bash
-usage: incremental_solve.py [-h] [--aws-instance AWS_INSTANCE] [--continue]
+usage: incremental_solver.py [-h] [--aws-instance AWS_INSTANCE] [--continue]
                             [--debug-level DEBUG_LEVEL]
                             [--max-action-arity MAX_ACTION_ARITY]
                             [--max-nodes-per-iteration MAX_NODES_PER_ITERATION]
