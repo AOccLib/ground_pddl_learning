@@ -393,35 +393,35 @@ fappl(I,A,(3,4),(O3,O4),S)     :- instance(I), action(A), a_arity(A,N), N >= 4, 
 % 1.a. Choose next S2 if ground action A(OO) is applicable in S1
 
   { fnext(I,0,0,  S1,S2) : tlabelR(I,(S1,S2),A) } = 1 :- action(A), a_arity(A,0), repr(I,S1),
-                                                        fappl(I,A,null_arg,null_arg,S1).
+                                                         fappl(I,A,null_arg,null_arg,S1).
 
   { fnext(I,1,O1, S1,S2) : tlabelR(I,(S1,S2),A) } = 1 :- action(A), a_arity(A,1), repr(I,S1),
-                                                        fappl(I,A,(1,),(O1,),S1).
+                                                         fappl(I,A,(1,),(O1,),S1).
 
 1 { fnext(I,1,O1, S1,S2) : tlabelR(I,(S1,S2),A) }     :- action(A), a_arity(A,2), repr(I,S1),
-                                                        fappl(I,A,(1,2),(O1,O2),S1).
+                                                         fappl(I,A,(1,2),(O1,O2),S1).
 1 { fnext(I,2,O2, S1,S2) : tlabelR(I,(S1,S2),A) }     :- action(A), a_arity(A,2), repr(I,S1),
-                                                        fappl(I,A,(1,2),(O1,O2),S1).
+                                                         fappl(I,A,(1,2),(O1,O2),S1).
 
 1 { fnext(I,1,O1, S1,S2) : tlabelR(I,(S1,S2),A) }     :- action(A), a_arity(A,3), repr(I,S1),
-                                                        fappl(I,A,(1,2),(O1,O2),S1), fappl(I,A,(1,3),(O1,O3),S1), fappl(I,A,(2,3),(O2,O3),S1).
+                                                         fappl(I,A,(1,2),(O1,O2),S1), fappl(I,A,(1,3),(O1,O3),S1), fappl(I,A,(2,3),(O2,O3),S1).
 1 { fnext(I,2,O2, S1,S2) : tlabelR(I,(S1,S2),A) }     :- action(A), a_arity(A,3), repr(I,S1),
-                                                        fappl(I,A,(1,2),(O1,O2),S1), fappl(I,A,(1,3),(O1,O3),S1), fappl(I,A,(2,3),(O2,O3),S1).
+                                                         fappl(I,A,(1,2),(O1,O2),S1), fappl(I,A,(1,3),(O1,O3),S1), fappl(I,A,(2,3),(O2,O3),S1).
 1 { fnext(I,3,O3, S1,S2) : tlabelR(I,(S1,S2),A) }     :- action(A), a_arity(A,3), repr(I,S1),
-                                                        fappl(I,A,(1,2),(O1,O2),S1), fappl(I,A,(1,3),(O1,O3),S1), fappl(I,A,(2,3),(O2,O3),S1).
+                                                         fappl(I,A,(1,2),(O1,O2),S1), fappl(I,A,(1,3),(O1,O3),S1), fappl(I,A,(2,3),(O2,O3),S1).
 
 1 { fnext(I,1,O1, S1,S2) : tlabelR(I,(S1,S2),A) }     :- action(A), a_arity(A,4), repr(I,S1),
-                                                        fappl(I,A,(1,2),(O1,O2),S1), fappl(I,A,(1,3),(O1,O3),S1), fappl(I,A,(1,4),(O1,O4),S1),
-                                                        fappl(I,A,(2,3),(O2,O3),S1), fappl(I,A,(2,4),(O2,O4),S1), fappl(I,A,(3,4),(O3,O4),S1).
+                                                         fappl(I,A,(1,2),(O1,O2),S1), fappl(I,A,(1,3),(O1,O3),S1), fappl(I,A,(1,4),(O1,O4),S1),
+                                                         fappl(I,A,(2,3),(O2,O3),S1), fappl(I,A,(2,4),(O2,O4),S1), fappl(I,A,(3,4),(O3,O4),S1).
 1 { fnext(I,2,O2, S1,S2) : tlabelR(I,(S1,S2),A) }     :- action(A), a_arity(A,4), repr(I,S1),
-                                                        fappl(I,A,(1,2),(O1,O2),S1), fappl(I,A,(1,3),(O1,O3),S1), fappl(I,A,(1,4),(O1,O4),S1),
-                                                        fappl(I,A,(2,3),(O2,O3),S1), fappl(I,A,(2,4),(O2,O4),S1), fappl(I,A,(3,4),(O3,O4),S1).
+                                                         fappl(I,A,(1,2),(O1,O2),S1), fappl(I,A,(1,3),(O1,O3),S1), fappl(I,A,(1,4),(O1,O4),S1),
+                                                         fappl(I,A,(2,3),(O2,O3),S1), fappl(I,A,(2,4),(O2,O4),S1), fappl(I,A,(3,4),(O3,O4),S1).
 1 { fnext(I,3,O3, S1,S2) : tlabelR(I,(S1,S2),A) }     :- action(A), a_arity(A,4), repr(I,S1),
-                                                        fappl(I,A,(1,2),(O1,O2),S1), fappl(I,A,(1,3),(O1,O3),S1), fappl(I,A,(1,4),(O1,O4),S1),
-                                                        fappl(I,A,(2,3),(O2,O3),S1), fappl(I,A,(2,4),(O2,O4),S1), fappl(I,A,(3,4),(O3,O4),S1).
+                                                         fappl(I,A,(1,2),(O1,O2),S1), fappl(I,A,(1,3),(O1,O3),S1), fappl(I,A,(1,4),(O1,O4),S1),
+                                                         fappl(I,A,(2,3),(O2,O3),S1), fappl(I,A,(2,4),(O2,O4),S1), fappl(I,A,(3,4),(O3,O4),S1).
 1 { fnext(I,4,O4, S1,S2) : tlabelR(I,(S1,S2),A) }     :- action(A), a_arity(A,4), repr(I,S1),
-                                                        fappl(I,A,(1,2),(O1,O2),S1), fappl(I,A,(1,3),(O1,O3),S1), fappl(I,A,(1,4),(O1,O4),S1),
-                                                        fappl(I,A,(2,3),(O2,O3),S1), fappl(I,A,(2,4),(O2,O4),S1), fappl(I,A,(3,4),(O3,O4),S1).
+                                                         fappl(I,A,(1,2),(O1,O2),S1), fappl(I,A,(1,3),(O1,O3),S1), fappl(I,A,(1,4),(O1,O4),S1),
+                                                         fappl(I,A,(2,3),(O2,O3),S1), fappl(I,A,(2,4),(O2,O4),S1), fappl(I,A,(3,4),(O3,O4),S1).
 
 % 1.b. If k1 -> O1 in (S1,S2), then k2 -> O2 in (S1,S2), for some O2, for each arg k1 of action A (i.e, A(OO) must be fully defined for (S1,S2))
 :- repr(I,S1), tlabelR(I,(S1,S2),A), a_arity(A,N), fnext(I,K1,O1,S1,S2), K1 > 0, K2 = 1..N, K2 != K1, not fnext(I,K2,O2,S1,S2) : object(I,O2).
@@ -520,7 +520,7 @@ diff_fnext(I,A,K,S1,S2,S3) :- repr(I,S1), tlabelR(I,(S1,S2),A), tlabelR(I,(S1,S3
 repr(I,R) :- repr(I,R,S).
 
 % Project transitions over representatives
-tlabelR(I,(R1,R2),A) :- tlabel(I,(S1,S2),A), repr(I,R1,S1), repr(I,R2,S2).
+tlabelR(I,(R1,S2),A) :- repr(I,R1,S1), tlabel(I,(S1,S2),A).
 
 % No self loops or parallel edges in abstraction
 :- tlabelR(I,(R,R),A).

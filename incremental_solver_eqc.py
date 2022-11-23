@@ -14,6 +14,7 @@ import logging
 
 import parse_and_ground as pg
 from verifier import verify_ground_model
+from verifier import verify_ground_model_using_equivalence_classes
 
 def rm_tree(path: Path, logger) -> None:
     for child in path.iterdir():
@@ -130,7 +131,7 @@ def solve(solver: Path,
     verify_times_batches = []
 
     # for checking whether trapped in infinite loop (set of new nodes cannot be subset of previous nodes)
-    unsolved_data = dict(instances=dict(), solved_instances=set(), already_solved=dict())
+    unsolved_data = dict(instances=dict(), eq_classes=dict(), solved_instances=set(), already_solved=dict(), sink_nodes=dict())
 
     # setup solver command
     solver_cmd_args = dict(max_time=max_time, max_action_arity=max_action_arity, max_num_predicates=max_num_predicates, solver=solver, best_model_filename=best_model_filename, readable_models_filename=readable_models_filename)
@@ -200,13 +201,17 @@ def solve(solver: Path,
 
                 if fname.name not in unsolved_data['already_solved']:
                     unsolved_data['already_solved'][fname.name] = set()
+                if fname.name not in unsolved_data['sink_nodes']:
+                    unsolved_data['sink_nodes'][fname.name] = pg.read_sink_nodes(distilled, logger)
+                    logger.info(f'sinks={unsolved_data["sink_nodes"][fname.name]}')
 
                 verify_start_time = timer()
                 ground_model = pg.ground(lifted_model, distilled, logger)
-                inst, unverified_nodes = verify_ground_model(ground_model, logger)
+                inst, unverified_nodes, eqc = verify_ground_model_using_equivalence_classes(ground_model, unsolved_data['already_solved'][fname.name], logger)
                 verify_elapsed_time = timer() - verify_start_time
                 verify_times.append(verify_elapsed_time)
                 unsolved_data['instances'][fname.name] = inst
+                unsolved_data['eq_classes'][fname.name] = eqc
 
                 if unverified_nodes:
                     unsolved_nodes = [ node for node in unverified_nodes if node not in unsolved_data['already_solved'][fname.name] ]
@@ -243,6 +248,28 @@ def solve(solver: Path,
                     unsolved_data['solved_instances'].add(fname.name)
             verify_times_batches.append(verify_times)
         else:
+            # Solver returns UNSAT. This could be done if there are relevant nodes that are sink nodes.
+            # In such cases, add equivalent nodes to the sinks if any. Otherwise, fail.
+            unsolved_fnames = [ fname for fname in unsolved_data['already_solved'].keys() if fname not in unsolved_data['solved_instances'] ]
+            assert len(unsolved_fnames) == 1, f'unsolved_fnames={unsolved_fnames}'
+            unsolved_fname = unsolved_fnames[0]
+            unsolved_inst = unsolved_data['instances'][unsolved_fname]
+            unsolved_eq_classes = unsolved_data['eq_classes'][unsolved_fname]
+            sinks_in_partial = [ node for node in unsolved_data['already_solved'][unsolved_fname] if node in unsolved_data['sink_nodes'][unsolved_fname] ]
+
+            # calculate equivalent nodes to unsolved sinks that are not already solved
+            unsolved_nodes = []
+            for sink in sinks_in_partial:
+                for node in unsolved_eq_classes['classes'][unsolved_eq_classes['map'][sink]]:
+                    if node not in unsolved_data['already_solved'][unsolved_fname]:
+                        unsolved_nodes.append(node)
+
+            # if some nodes to add, add them and continue solving
+            if unsolved_nodes:
+                added = add_nodes_to_partial_lp_file(fname, partial_fname, inst, unsolved_nodes, max_nodes_per_iteration, logger)
+                unsolved_data['already_solved'][fname.name].update(added)
+                added_nodes.append(len(added))
+                calculate_model = True
             solution_found = False
 
     elapsed_time = timer() - start_time
@@ -268,7 +295,7 @@ if __name__ == '__main__':
     default_aws_instance = False
     default_debug_level = 0
     default_max_time = 57600
-    default_max_nodes_per_iteration = 10
+    default_max_nodes_per_iteration = 5
     default_max_action_arity = 3
     default_max_num_predicates = 12
 

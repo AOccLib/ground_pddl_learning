@@ -5,7 +5,7 @@ from itertools import product
 from typing import List
 from termcolor import colored
 
-def read_file(filename : Path, logger) -> List[str]:
+def read_file(filename: Path, logger) -> List[str]:
     lines = [ line for line in filename.open('r') ]
     for line in tqdm(lines, desc = f"read file '{filename}'", file=stdout):
         line = line.strip('\n')
@@ -20,7 +20,7 @@ def read_file(filename : Path, logger) -> List[str]:
     logger.info(f'{len(lines)} record(s) from {filename}')
     return
 
-def parse_record(record : str, sep_tok : str = ',', grouping_tok : str = '()', logger = None, debug : bool = False) -> List[str]:
+def parse_record(record: str, sep_tok: str = ',', grouping_tok: str = '()', logger = None, debug: bool = False) -> List[str]:
     fields = []
     balance = 0
 
@@ -55,7 +55,7 @@ def parse_record(record : str, sep_tok : str = ',', grouping_tok : str = '()', l
     return fields
 
 # Read lifted model from .lp file, specified with facts a_arity/2, pred/1, eff/3, prec/3, and constant/1
-def parse_lifted_model(filename : Path, logger) -> dict:
+def parse_lifted_model(filename: Path, logger) -> dict:
     lifted_model = dict(action=dict(), pred=set(), eff=[], prec=[], constants=set())
     for line in read_file(filename, logger):
         if line[:8] == 'a_arity(' and line[-1] == '.':
@@ -102,12 +102,20 @@ def parse_lifted_model(filename : Path, logger) -> dict:
             assert len(fields) == 1
             constant = fields[0]
             lifted_model['constants'].add(constant)
+        elif line[:8] == 'tlabelR(' and line[-1] == '.':
+            fields = parse_record(line[8:-2], logger=logger, debug=False)
+            assert len(fields) == 3
+            assert False
+        elif line[:5] == 'repr(' and line[-1] == '.':
+            fields = parse_record(line[5:-2], logger=logger, debug=False)
+            assert len(fields) in [2, 3]
+            assert False
         else:
             logger.warning(f'Unrecognized line |{line}|')
     return lifted_model
 
 # Parse graph from .lp file, specified with facts instance/1, tlabel/3, node/2, f_static/2, fval/3-4, feature/1, and f_arity/2
-def parse_graph_file(filename : Path, logger) -> List[dict]:
+def parse_graph_file(filename: Path, logger) -> List[dict]:
     assert filename.name[-3:] == '.lp', f"{colored('ERROR:', 'red')} unexpected filename '{filename}'"
 
     distilled = dict(graph_filename=filename, node=dict(), tlabel=dict(), f_static=dict(), fval=dict(), fval_static=dict(), feature=dict())
@@ -194,6 +202,18 @@ def parse_graph_file(filename : Path, logger) -> List[dict]:
             logger.warning(f'Unrecognized line |{line}|')
     return distilled
 
+def read_sink_nodes(distilled: dict, logger) -> set:
+    inst = list(distilled['node'].keys())[0]
+    nodes = distilled['node'][inst]
+    tlabels = distilled['tlabel'][inst]
+    sinks = [ True for _ in nodes ]
+    for label in tlabels:
+        for (src, dst) in tlabels[label]:
+            sinks[src] = False
+    #logger.info(f'read_sink_nodes: inst={inst}, tlabels={tlabels}')
+    #logger.info(f'read_sink_nodes: inst={inst}, sinks={sinks}')
+    return set([ node for node in nodes if sinks[node] ])
+
 
 # Given a lifted model and structured of distilled (parsed) graph files, ground the model on each graph file.
 # Returns dictionary with two type of elements: elements that are shared by all instances, and elements that
@@ -224,7 +244,7 @@ def parse_graph_file(filename : Path, logger) -> List[dict]:
 # CHECK: Grounded actions are obtained by instantiations that do not repeat objects in arguments
 # CHECK: This shouldn't be fixed here, rather it should be a choice determined by an option (pruning is done with filter_fn function)
 
-def ground(lifted_model : dict, distilled : dict, logger, debug : bool = False) -> dict:
+def ground(lifted_model: dict, distilled: dict, logger, debug: bool = False) -> dict:
     ground_model = dict(graph_filename=distilled['graph_filename'],
                         pred=lifted_model['pred'],
                         constants=lifted_model['constants'],
@@ -351,7 +371,7 @@ def ground(lifted_model : dict, distilled : dict, logger, debug : bool = False) 
     return ground_model
 
 # Check if static predicates in given ground action hold
-def applicable_static(ground_model : dict, inst : int, gaction : dict) -> bool:
+def applicable_static(ground_model: dict, inst: int, gaction: dict) -> bool:
     for gprec, index, value in gaction['prec']:
         assert gprec[0] in ground_model['pred']
         if gprec[0] in ground_model['f_static'][inst]:
@@ -364,7 +384,7 @@ def applicable_static(ground_model : dict, inst : int, gaction : dict) -> bool:
     return True
 
 # Check if dynamic predicates in given ground action hold in given node
-def applicable_dynamic(ground_model : dict, inst : int, node_index : int, gaction : dict) -> bool:
+def applicable_dynamic(ground_model: dict, inst: int, node_index: int, gaction: dict) -> bool:
     for gprec, index, value in gaction['prec']:
         assert gprec[0] in ground_model['pred']
         if gprec[0] not in ground_model['f_static'][inst]:
@@ -377,14 +397,14 @@ def applicable_dynamic(ground_model : dict, inst : int, node_index : int, gactio
     return True
 
 # Check if given ground action is aplicable in give node
-def applicable(ground_model : dict, inst : int, node_index : int, gaction : dict) -> bool:
+def applicable(ground_model: dict, inst: int, node_index: int, gaction: dict) -> bool:
     return applicable_static(ground_model, inst, gaction) and applicable_dynamic(ground_model, inst, node_index, gaction)
 
 # Returns index of results node for grounded action applicable at src node
 # If grounded action leads to non-existent node, errors are logged
-def transition(ground_model : dict, inst : int, src_index : int, gaction : dict, f_nodes : List, f_nodes_r : dict, logger, debug : bool = False) -> List:
+def transition(ground_model: dict, inst: int, src_index: int, gaction: dict, f_nodes: dict, f_nodes_r: dict, logger, debug: bool = False) -> List:
     dst = set(f_nodes[src_index])
-    if debug: logger.info(f'Src={src_index}.{dst}, gaction={gaction["label"]}{gaction["args"]}')
+    if debug: logger.debug(f'Src={src_index}.{dst}, gaction={gaction["label"]}{gaction["args"]}')
     for gatom, index, value in gaction['eff']:
         assert gatom[0] in ground_model['pred']
         if index == -1:
@@ -398,19 +418,19 @@ def transition(ground_model : dict, inst : int, src_index : int, gaction : dict,
                 logger.error(f'Trying to remove non-existent static atom {gatom}')
                 return -1
             elif gatom[0] not in ground_model['f_static'][inst] and index in dst:
-                if debug: logger.info(f'Remove atom {index}.{gatom}')
+                if debug: logger.debug(f'Remove atom {index}.{gatom}')
                 dst.remove(index)
         else:
             if gatom[0] in ground_model['f_static'][inst] and index not in ground_model['fval_static'][inst][1]:
                 logger.error(f'Trying to assert non-true static atom {index}.{gatom}')
                 return -1
             elif gatom[0] not in ground_model['f_static'][inst] and index not in dst:
-                if debug: logger.info(f'Assert atom {index}.{gatom}')
+                if debug: logger.debug(f'Assert atom {index}.{gatom}')
                 dst.add(index)
     key = tuple(sorted(list(dst)))
     dst_index = -1 if key not in f_nodes_r else f_nodes_r[key]
     if debug:
         dst_gatoms = [ ground_model['gatoms_r'][inst][i] for i in dst ]
-        logger.info(f'Dst={dst_index}.{dst}={dst_gatoms}')
+        logger.debug(f'Dst={dst_index}.{dst}={dst_gatoms}')
     return dst_index
 

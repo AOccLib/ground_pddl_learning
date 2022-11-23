@@ -1,5 +1,9 @@
-from sys import stdin, argv
-from termcolor import colored
+from sys import stdin, stdout, argv
+from pathlib import Path
+import termcolor
+
+def colored(text, color, attrs=None, use_colors=True):
+    return termcolor.colored(text, color=color, attrs=attrs) if use_colors else text
 
 class LiftedAtom:
     def __init__(self, name, vargs):
@@ -104,28 +108,28 @@ class Answer:
     def set_static_preconditions(self):
         for _, action in self.actions.items():
             action.set_static_preconditions(self.static)
-    def print(self, indent_size=0):
+    def print(self, indent_size=0, use_colors=True, fd=stdout):
         indent = ' ' * indent_size
-        print(f'{indent}Optimization: ({",".join([ str(n) for n in self.optimization ])})')
-        print(f'{indent}{len(self.objects)} object(s): {", ".join(self.objects)}')
-        print(f'{indent}{len(self.constants)} constant(s): {", ".join(self.constants)}')
-        print(f'{indent}{len(self.predicates)} predicate(s): {", ".join(self.predicates)}')
-        print(f'{indent}{len(self.static)} static predicate(s): {", ".join(self.static)}')
+        print(f'{indent}Optimization: ({",".join([ str(n) for n in self.optimization ])})', file=fd)
+        print(f'{indent}{len(self.objects)} object(s): {", ".join(self.objects)}', file=fd)
+        print(f'{indent}{len(self.constants)} constant(s): {", ".join(self.constants)}', file=fd)
+        print(f'{indent}{len(self.predicates)} predicate(s): {", ".join(self.predicates)}', file=fd)
+        print(f'{indent}{len(self.static)} static predicate(s): {", ".join(self.static)}', file=fd)
         print('\n', end='')
         for _, action in self.actions.items():
             static = [ str(atom) for atom in action.static ]
             precs = [ str(atom) for atom in action.precs ]
             effects = [ str(atom) for atom in action.effects ]
-            print(colored(f'{indent}{action.head()}:', 'red'))
-            print(colored(f'{indent}   static: ', 'green') + ', '.join(static))
-            print(colored(f'{indent}    precs: ', 'green') + ', '.join(precs))
-            print(colored(f'{indent}  effects: ', 'green') + ', '.join(effects))
-    def print_appl(self, indent_size=0):
+            print(colored(f'{indent}{action.head()}:', 'red', use_colors=use_colors), file=fd)
+            print(colored(f'{indent}   static: ', 'green', use_colors=use_colors) + ', '.join(static), file=fd)
+            print(colored(f'{indent}    precs: ', 'green', use_colors=use_colors) + ', '.join(precs), file=fd)
+            print(colored(f'{indent}  effects: ', 'green', use_colors=use_colors) + ', '.join(effects), file=fd)
+    def print_appl(self, indent_size=0, use_colors=True, fd=stdout):
         indent = ' ' * indent_size
         for (instance, name, args, node) in self.appl:
-            print(f'{indent}Action {name}({",".join(args)}) is appl. in node {node}/{instance}')
+            print(f'{indent}Action {name}({",".join(args)}) is appl. in node {node}/{instance}', file=fd)
     def dump(self, filename):
-        with open(filename, 'w') as fd:
+        with Path(filename).open('w') as fd:
             for atom in self.atoms:
                 fd.write(f'{atom}.\n')
 
@@ -199,6 +203,12 @@ def read_answer(line):
             answer.add_atom(fact)
         elif fact[:5] == '-eff(':
             fields = parse(fact[5:-1])
+        elif fact[:8] == 'tlabelR(':
+            fields = parse(fact[8:-1])
+            #answer.add_atom(fact)
+        elif fact[:5] == 'repr(':
+            fields = parse(fact[5:-1])
+            #answer.add_atom(fact)
         elif fact == 'verification' or fact == 'synthesis':
             answer.set_mode(fact)
         else:
@@ -208,9 +218,10 @@ def read_answer(line):
 
 if __name__ == '__main__':
     if len(argv) < 2:
-        print(f'Usage: {argv[0]} <filename>')
+        print(f'Usage: {argv[0]} <filename> [<filename>]')
         exit(-1)
     filename = argv[1]
+    pprint_filename = None if len(argv) < 3 else argv[2]
 
     # read/print input lines
     lines = []
@@ -246,6 +257,11 @@ if __name__ == '__main__':
         answers[-1].print(2)
         answers[-1].dump(filename)
         answers[-1].print_appl(2)
+        if pprint_filename:
+            with Path(pprint_filename).open('a') as fd:
+                print('', file=fd)
+                answers[-1].print(2, use_colors=False, fd=fd)
+                answers[-1].print_appl(2, use_colors=False, fd=fd)
     else:
         print('\n' + colored('No model found', 'red'))
     print('\n', end='')
