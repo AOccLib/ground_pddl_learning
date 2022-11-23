@@ -1,0 +1,18 @@
+(define (problem sokoban-1rows-5cols-2boxes-6)
+                        (:domain sokoban)
+                        (:objects
+                          sokoban1
+                          pos0_0 pos0_1 pos0_2 pos0_3 pos0_4
+                          crate0 crate1
+                        )
+                        (:init
+                           (sokoban sokoban1)
+                           (crate crate0) (crate crate1)
+                           (clear pos0_2) (clear pos0_3)
+                           (at sokoban1 pos0_1)
+                           (left pos0_1 pos0_0) (left pos0_2 pos0_1) (left pos0_3 pos0_2) (left pos0_4 pos0_3)
+                           (at crate0 pos0_0) (at crate1 pos0_4)
+                        )
+                        (:goal (and
+                           (at sokoban1 pos0_1)
+                        )))
