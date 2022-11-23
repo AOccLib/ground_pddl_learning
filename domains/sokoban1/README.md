@@ -8,5 +8,5 @@ Instaces parametrized by:
 The locations of the boxes and the agent are chosen randomly.
 
 Folder sokoban/ contains more problems.
-Problems here from sokoban/originals/
+Problems here from sokoban.master/originals/
 

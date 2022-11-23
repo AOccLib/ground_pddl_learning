@@ -1,4 +1,4 @@
-### sokoban
+### sokoban.master
 
 Instaces parametrized by:
 * x = number of rows
