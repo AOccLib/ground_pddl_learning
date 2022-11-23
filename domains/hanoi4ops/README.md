@@ -1,7 +1,7 @@
-### Hanoi (3-peg)
+Hanoi with 4 operators
 
-Instaces are parametrized by:
-
-n = number of disks
+Folder problems/ contains all problems for this domain.
+The problems in root folder are those used to generate .lp files.
 
 Generator available here: https://github.com/Elucidation/Hanoi-PDDL-generator
+
