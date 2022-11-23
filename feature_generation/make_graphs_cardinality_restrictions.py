@@ -304,7 +304,6 @@ class ERConcept(Concept):
         concept = self.concept.denotation(state)
         return set([ x for (x,y) in role if y in concept ])
 
-
 class CardinalityConcept(Concept):
     def __init__(self, role : Role, card: int):
         assert type(role) != FalsumRole
@@ -739,7 +738,7 @@ def generate_role_restrictions(roles : List[Role], concepts : List[Concept], pri
 # Generation of predicates
 def generate_predicates(o2d_concepts_and_roles : dict, states : List[O2DState], max_complexity : int, complexity_measure : str):
     # Roles
-    role_ctors = [ ('Role', 'None', InverseRole), ('Role', 'Role', CompositionRole)]
+    role_ctors = [ ('Role', 'None', InverseRole), ('Role', 'Role', CompositionRole) ]
     primitive_roles = [ FalsumRole() ]
     primitive_roles.extend([ O2DRole(name) for name in o2d_concepts_and_roles['roles'] ])
     roles = generate_roles(primitive_roles, states, max_complexity, role_ctors)
@@ -747,8 +746,8 @@ def generate_predicates(o2d_concepts_and_roles : dict, states : List[O2DState], 
         logger.debug(f'Role r{i}.{r}/{r.complexity()}')
 
     # Concepts
-    concept_ctors = [ ('Concept', 'None', NegatedConcept), ('Concept', 'Concept', ConjunctiveConcept), ('Role', 'Concept', ERConcept)]
-    primitive_concepts = [ FalsumConcept(), VerumConcept()]
+    concept_ctors = [ ('Concept', 'None', NegatedConcept), ('Concept', 'Concept', ConjunctiveConcept), ('Role', 'Concept', ERConcept) ]
+    primitive_concepts = [ FalsumConcept(), VerumConcept() ]
     primitive_concepts.extend([ O2DConcept(name) for name in o2d_concepts_and_roles['concepts'] ])
     concepts = generate_concepts(primitive_concepts, roles, states, max_complexity, concept_ctors)
     for i, c in enumerate(concepts):
@@ -762,7 +761,6 @@ def generate_predicates(o2d_concepts_and_roles : dict, states : List[O2DState], 
 
     # Limited concept conjunctions: primitives + cardinality restrictions
     concepts.extend(generate_concepts(primitive_concepts+cardinality_concepts, [], states, 2 + max_complexity, [('Concept', 'Concept', ConjunctiveConcept)]))
-
 
     # Predicates:
     # - nullary predicates: (C \subseteq C') for concepts C and C'
