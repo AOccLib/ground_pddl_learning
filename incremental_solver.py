@@ -107,7 +107,8 @@ def solve(solver: Path,
           max_time: int,
           verify_only: bool,
           ignore_constants: bool,
-          max_nodes_per_iteration: int) -> bool:
+          max_nodes_per_iteration: int,
+          include: List[Path]) -> bool:
     # start clock
     start_time = timer()
 
@@ -142,6 +143,11 @@ def solve(solver: Path,
 
         if not verify_only:
             files = get_lp_files(solve_path, [ f'{solver.name}', f'{best_model_filename.name}', f'{solution_filename.name}' ])
+            for fname in include:
+                if not fname.exists():
+                    logger.warning(colored(f"Include file '{fname}' doesn't exist; skipping it", 'red'))
+                else:
+                    files.append(fname)
             files_str = ' '.join([ str(fname) for fname in files ])
             solver_cmd = solver_cmd_template.format(files=files_str, **solver_cmd_args)
 
@@ -277,6 +283,7 @@ if __name__ == '__main__':
     parser.add_argument('--aws-instance', dest='aws_instance', type=lambda x:bool(strtobool(x)), default=default_aws_instance, help=f'describe AWS instance (boolean, default={default_aws_instance})')
     parser.add_argument('--continue', dest='continue_solve', action='store_true', help='continue an interrupted learning process')
     parser.add_argument('--debug-level', dest='debug_level', type=int, default=default_debug_level, help=f'set debug level (default={default_debug_level})')
+    parser.add_argument('--include', nargs=1, dest='include', type=Path, default=[], help=f'include .lp file')
     parser.add_argument('--ignore-constants', dest='ignore_constants', action='store_true', help='ignore constant semantics for objects of type constant')
     parser.add_argument('--max-action-arity', dest='max_action_arity', type=int, default=default_max_action_arity, help=f'set maximum action arity for schemas (default={default_max_action_arity})')
     parser.add_argument('--max-nodes-per-iteration', dest='max_nodes_per_iteration', type=int, default=default_max_nodes_per_iteration, help=f'max number of nodes added per iteration (0=all, default={default_max_nodes_per_iteration}')
@@ -371,7 +378,8 @@ if __name__ == '__main__':
                           max_time=args.max_time,
                           verify_only=args.verify_only,
                           ignore_constants=args.ignore_constants,
-                          max_nodes_per_iteration=args.max_nodes_per_iteration)
+                          max_nodes_per_iteration=args.max_nodes_per_iteration,
+                          include=args.include)
         solution_found = solve(**solve_args)
     except KeyboardInterrupt:
         logger.warning(colored('Process INTERRUPTED by keyboard (ctrl-C)!', 'red'))
