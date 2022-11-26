@@ -1,0 +1,5 @@
+(define (problem 4blocks-5slots)
+   (:domain blocks4ops-slots)
+   (:objects a0 a1 a2 a3 s0 s1 s2 s3 s4 h0 h1 h2 h3)
+   (:init (at s0 h0 a0) (at s2 h0 a1) (at s3 h0 a2) (at s4 h0 a3) (ontable a0) (ontable a1) (ontable a2) (ontable a3) (clear a0) (clear a1) (clear a2) (clear a3) (handempty) (freetable s1) (succ h1 h0) (succ h2 h1) (succ h3 h2) (succ s1 s0) (succ s2 s1) (succ s3 s2) (succ s4 s3))
+   (:goal (and (clear a0))))
