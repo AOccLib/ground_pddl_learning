@@ -332,42 +332,42 @@ fappl(I,A,(3,4),(O3,O4))       :- instance(I), action(A), a_arity(A,N), N >= 4, 
 
 % FACTORED appl (dynamic part)
 
-fappl(I,A,null_arg,null_arg,S) :- instance(I), action(A), a_arity(A,0), relevant(I,S),
+fappl(I,A,null_arg,null_arg,S) :- instance(I), action(A), a_arity(A,0), relrepr(I,S),
                                   fappl(I,A,null_arg,null_arg),
                                   %map(I,(0,0,0,0),T,OO,K)   : prec(A,(P,T),V),                            not f_static(I,P).
                                   fval(I,(P,OO),S,V)        : prec(A,(P,T),V), map(I,(0,0,0,0),T,OO,K),   not f_static(I,P).
 
-fappl(I,A,(1,),(O1,),S)        :- instance(I), action(A), a_arity(A,1), objtuple(I,(O1,),1), relevant(I,S),
+fappl(I,A,(1,),(O1,),S)        :- instance(I), action(A), a_arity(A,1), objtuple(I,(O1,),1), relrepr(I,S),
                                   fappl(I,A,(1,),(O1,)),
                                   %map(I,(O1,0,0,0),T,OO,K)  : prec(A,(P,T),V),                            not f_static(I,P).
                                   fval(I,(P,OO),S,V)        : prec(A,(P,T),V), map(I,(O1,0,0,0),T,OO,K),  not f_static(I,P).
 
-fappl(I,A,(1,2),(O1,O2),S)     :- instance(I), action(A), a_arity(A,N), N >= 2, objtuple(I,(O1,O2),2), relevant(I,S),
+fappl(I,A,(1,2),(O1,O2),S)     :- instance(I), action(A), a_arity(A,N), N >= 2, objtuple(I,(O1,O2),2), relrepr(I,S),
                                   fappl(I,A,(1,2),(O1,O2)),
                                   %map(I,(O1,O2,0,0),T,OO,K) : prec(A,(P,T),V),                            not f_static(I,P).
                                   fval(I,(P,OO),S,V)        : prec(A,(P,T),V), map(I,(O1,O2,0,0),T,OO,K), not f_static(I,P).
 
-fappl(I,A,(1,3),(O1,O3),S)     :- instance(I), action(A), a_arity(A,N), N >= 3, objtuple(I,(O1,O3),2), relevant(I,S),
+fappl(I,A,(1,3),(O1,O3),S)     :- instance(I), action(A), a_arity(A,N), N >= 3, objtuple(I,(O1,O3),2), relrepr(I,S),
                                   fappl(I,A,(1,3),(O1,O3)),
                                   %map(I,(O1,0,O3,0),T,OO,K) : prec(A,(P,T),V),                            not f_static(I,P).
                                   fval(I,(P,OO),S,V)        : prec(A,(P,T),V), map(I,(O1,0,O3,0),T,OO,K), not f_static(I,P).
 
-fappl(I,A,(2,3),(O2,O3),S)     :- instance(I), action(A), a_arity(A,N), N >= 3, objtuple(I,(O2,O3),2), relevant(I,S),
+fappl(I,A,(2,3),(O2,O3),S)     :- instance(I), action(A), a_arity(A,N), N >= 3, objtuple(I,(O2,O3),2), relrepr(I,S),
                                   fappl(I,A,(2,3),(O2,O3)),
                                   %map(I,(0,O2,O3,0),T,OO,K) : prec(A,(P,T),V),                            not f_static(I,P).
                                   fval(I,(P,OO),S,V)        : prec(A,(P,T),V), map(I,(0,O2,O3,0),T,OO,K), not f_static(I,P).
 
-fappl(I,A,(1,4),(O1,O4),S)     :- instance(I), action(A), a_arity(A,N), N >= 4, objtuple(I,(O1,O4),2), relevant(I,S),
+fappl(I,A,(1,4),(O1,O4),S)     :- instance(I), action(A), a_arity(A,N), N >= 4, objtuple(I,(O1,O4),2), relrepr(I,S),
                                   fappl(I,A,(1,4),(O1,O4)),
                                   %map(I,(O1,0,0,O4),T,OO,K) : prec(A,(P,T),V),                            not f_static(I,P).
                                   fval(I,(P,OO),S,V)        : prec(A,(P,T),V), map(I,(O1,0,0,O4),T,OO,K), not f_static(I,P).
 
-fappl(I,A,(2,4),(O2,O4),S)     :- instance(I), action(A), a_arity(A,N), N >= 4, objtuple(I,(O2,O4),2), relevant(I,S),
+fappl(I,A,(2,4),(O2,O4),S)     :- instance(I), action(A), a_arity(A,N), N >= 4, objtuple(I,(O2,O4),2), relrepr(I,S),
                                   fappl(I,A,(2,4),(O2,O4)),
                                   %map(I,(0,O2,0,O4),T,OO,K) : prec(A,(P,T),V),                            not f_static(I,P).
                                   fval(I,(P,OO),S,V)        : prec(A,(P,T),V), map(I,(0,O2,0,O4),T,OO,K), not f_static(I,P).
 
-fappl(I,A,(3,4),(O3,O4),S)     :- instance(I), action(A), a_arity(A,N), N >= 4, objtuple(I,(O3,O4),2), relevant(I,S),
+fappl(I,A,(3,4),(O3,O4),S)     :- instance(I), action(A), a_arity(A,N), N >= 4, objtuple(I,(O3,O4),2), relrepr(I,S),
                                   fappl(I,A,(3,4),(O3,O4)),
                                   %map(I,(0,0,O3,O4),T,OO,K) : prec(A,(P,T),V),                            not f_static(I,P).
                                   fval(I,(P,OO),S,V)        : prec(A,(P,T),V), map(I,(0,0,O3,O4),T,OO,K), not f_static(I,P).
@@ -392,80 +392,80 @@ fappl(I,A,(3,4),(O3,O4),S)     :- instance(I), action(A), a_arity(A,N), N >= 4, 
 
 % 1.a. Choose next S2 if ground action A(OO) is applicable in S1
 
-  { fnext(I,0,0,  S1,S2) : tlabel(I,(S1,S2),A) } = 1 :- action(A), a_arity(A,0), relevant(I,S1),
-                                                        fappl(I,A,null_arg,null_arg,S1).
+  { fnext(I,0,0,  S1,S2) : tlabelR(I,(S1,S2),A) } = 1 :- action(A), a_arity(A,0), relrepr(I,S1),
+                                                         fappl(I,A,null_arg,null_arg,S1).
 
-  { fnext(I,1,O1, S1,S2) : tlabel(I,(S1,S2),A) } = 1 :- action(A), a_arity(A,1), relevant(I,S1),
-                                                        fappl(I,A,(1,),(O1,),S1).
+  { fnext(I,1,O1, S1,S2) : tlabelR(I,(S1,S2),A) } = 1 :- action(A), a_arity(A,1), relrepr(I,S1),
+                                                         fappl(I,A,(1,),(O1,),S1).
 
-1 { fnext(I,1,O1, S1,S2) : tlabel(I,(S1,S2),A) }     :- action(A), a_arity(A,2), relevant(I,S1),
-                                                        fappl(I,A,(1,2),(O1,O2),S1).
-1 { fnext(I,2,O2, S1,S2) : tlabel(I,(S1,S2),A) }     :- action(A), a_arity(A,2), relevant(I,S1),
-                                                        fappl(I,A,(1,2),(O1,O2),S1).
+1 { fnext(I,1,O1, S1,S2) : tlabelR(I,(S1,S2),A) }     :- action(A), a_arity(A,2), relrepr(I,S1),
+                                                         fappl(I,A,(1,2),(O1,O2),S1).
+1 { fnext(I,2,O2, S1,S2) : tlabelR(I,(S1,S2),A) }     :- action(A), a_arity(A,2), relrepr(I,S1),
+                                                         fappl(I,A,(1,2),(O1,O2),S1).
 
-1 { fnext(I,1,O1, S1,S2) : tlabel(I,(S1,S2),A) }     :- action(A), a_arity(A,3), relevant(I,S1),
-                                                        fappl(I,A,(1,2),(O1,O2),S1), fappl(I,A,(1,3),(O1,O3),S1), fappl(I,A,(2,3),(O2,O3),S1).
-1 { fnext(I,2,O2, S1,S2) : tlabel(I,(S1,S2),A) }     :- action(A), a_arity(A,3), relevant(I,S1),
-                                                        fappl(I,A,(1,2),(O1,O2),S1), fappl(I,A,(1,3),(O1,O3),S1), fappl(I,A,(2,3),(O2,O3),S1).
-1 { fnext(I,3,O3, S1,S2) : tlabel(I,(S1,S2),A) }     :- action(A), a_arity(A,3), relevant(I,S1),
-                                                        fappl(I,A,(1,2),(O1,O2),S1), fappl(I,A,(1,3),(O1,O3),S1), fappl(I,A,(2,3),(O2,O3),S1).
+1 { fnext(I,1,O1, S1,S2) : tlabelR(I,(S1,S2),A) }     :- action(A), a_arity(A,3), relrepr(I,S1),
+                                                         fappl(I,A,(1,2),(O1,O2),S1), fappl(I,A,(1,3),(O1,O3),S1), fappl(I,A,(2,3),(O2,O3),S1).
+1 { fnext(I,2,O2, S1,S2) : tlabelR(I,(S1,S2),A) }     :- action(A), a_arity(A,3), relrepr(I,S1),
+                                                         fappl(I,A,(1,2),(O1,O2),S1), fappl(I,A,(1,3),(O1,O3),S1), fappl(I,A,(2,3),(O2,O3),S1).
+1 { fnext(I,3,O3, S1,S2) : tlabelR(I,(S1,S2),A) }     :- action(A), a_arity(A,3), relrepr(I,S1),
+                                                         fappl(I,A,(1,2),(O1,O2),S1), fappl(I,A,(1,3),(O1,O3),S1), fappl(I,A,(2,3),(O2,O3),S1).
 
-1 { fnext(I,1,O1, S1,S2) : tlabel(I,(S1,S2),A) }     :- action(A), a_arity(A,4), relevant(I,S1),
-                                                        fappl(I,A,(1,2),(O1,O2),S1), fappl(I,A,(1,3),(O1,O3),S1), fappl(I,A,(1,4),(O1,O4),S1),
-                                                        fappl(I,A,(2,3),(O2,O3),S1), fappl(I,A,(2,4),(O2,O4),S1), fappl(I,A,(3,4),(O3,O4),S1).
-1 { fnext(I,2,O2, S1,S2) : tlabel(I,(S1,S2),A) }     :- action(A), a_arity(A,4), relevant(I,S1),
-                                                        fappl(I,A,(1,2),(O1,O2),S1), fappl(I,A,(1,3),(O1,O3),S1), fappl(I,A,(1,4),(O1,O4),S1),
-                                                        fappl(I,A,(2,3),(O2,O3),S1), fappl(I,A,(2,4),(O2,O4),S1), fappl(I,A,(3,4),(O3,O4),S1).
-1 { fnext(I,3,O3, S1,S2) : tlabel(I,(S1,S2),A) }     :- action(A), a_arity(A,4), relevant(I,S1),
-                                                        fappl(I,A,(1,2),(O1,O2),S1), fappl(I,A,(1,3),(O1,O3),S1), fappl(I,A,(1,4),(O1,O4),S1),
-                                                        fappl(I,A,(2,3),(O2,O3),S1), fappl(I,A,(2,4),(O2,O4),S1), fappl(I,A,(3,4),(O3,O4),S1).
-1 { fnext(I,4,O4, S1,S2) : tlabel(I,(S1,S2),A) }     :- action(A), a_arity(A,4), relevant(I,S1),
-                                                        fappl(I,A,(1,2),(O1,O2),S1), fappl(I,A,(1,3),(O1,O3),S1), fappl(I,A,(1,4),(O1,O4),S1),
-                                                        fappl(I,A,(2,3),(O2,O3),S1), fappl(I,A,(2,4),(O2,O4),S1), fappl(I,A,(3,4),(O3,O4),S1).
+1 { fnext(I,1,O1, S1,S2) : tlabelR(I,(S1,S2),A) }     :- action(A), a_arity(A,4), relrepr(I,S1),
+                                                         fappl(I,A,(1,2),(O1,O2),S1), fappl(I,A,(1,3),(O1,O3),S1), fappl(I,A,(1,4),(O1,O4),S1),
+                                                         fappl(I,A,(2,3),(O2,O3),S1), fappl(I,A,(2,4),(O2,O4),S1), fappl(I,A,(3,4),(O3,O4),S1).
+1 { fnext(I,2,O2, S1,S2) : tlabelR(I,(S1,S2),A) }     :- action(A), a_arity(A,4), relrepr(I,S1),
+                                                         fappl(I,A,(1,2),(O1,O2),S1), fappl(I,A,(1,3),(O1,O3),S1), fappl(I,A,(1,4),(O1,O4),S1),
+                                                         fappl(I,A,(2,3),(O2,O3),S1), fappl(I,A,(2,4),(O2,O4),S1), fappl(I,A,(3,4),(O3,O4),S1).
+1 { fnext(I,3,O3, S1,S2) : tlabelR(I,(S1,S2),A) }     :- action(A), a_arity(A,4), relrepr(I,S1),
+                                                         fappl(I,A,(1,2),(O1,O2),S1), fappl(I,A,(1,3),(O1,O3),S1), fappl(I,A,(1,4),(O1,O4),S1),
+                                                         fappl(I,A,(2,3),(O2,O3),S1), fappl(I,A,(2,4),(O2,O4),S1), fappl(I,A,(3,4),(O3,O4),S1).
+1 { fnext(I,4,O4, S1,S2) : tlabelR(I,(S1,S2),A) }     :- action(A), a_arity(A,4), relrepr(I,S1),
+                                                         fappl(I,A,(1,2),(O1,O2),S1), fappl(I,A,(1,3),(O1,O3),S1), fappl(I,A,(1,4),(O1,O4),S1),
+                                                         fappl(I,A,(2,3),(O2,O3),S1), fappl(I,A,(2,4),(O2,O4),S1), fappl(I,A,(3,4),(O3,O4),S1).
 
 % 1.b. If k1 -> O1 in (S1,S2), then k2 -> O2 in (S1,S2), for some O2, for each arg k1 of action A (i.e, A(OO) must be fully defined for (S1,S2))
-:- relevant(I,S1), tlabel(I,(S1,S2),A), a_arity(A,N), fnext(I,K1,O1,S1,S2), K1 > 0, K2 = 1..N, K2 != K1, not fnext(I,K2,O2,S1,S2) : object(I,O2).
+:- relrepr(I,S1), tlabelR(I,(S1,S2),A), a_arity(A,N), fnext(I,K1,O1,S1,S2), K1 > 0, K2 = 1..N, K2 != K1, not fnext(I,K2,O2,S1,S2) : object(I,O2).
 
 % 1.c. It cannot be fnext(I,K,O1,S1,S2) and fnext(I,K,O2,S1,S2) with O1 < O2
-:- relevant(I,S1), fnext(I,K,O1,S1,S2), fnext(I,K,O2,S1,S2), O1 < O2.
+:- relrepr(I,S1), fnext(I,K,O1,S1,S2), fnext(I,K,O2,S1,S2), O1 < O2.
 
 % 1.d. A(OO) cannot be mapped to two edges (S1,S2) and (S1,S3) with S2 < S3
-:- relevant(I,S1), tlabel(I,(S1,S2),A), tlabel(I,(S1,S3),A), S2 < S3, a_arity(A,0).
-:- relevant(I,S1), tlabel(I,(S1,S2),A), tlabel(I,(S1,S3),A), S2 < S3, a_arity(A,N), N >= 1, fnext(I,1,O,S1,S2), fnext(I,1,O,S1,S3), not diff_fnext(I,A,K2,S1,S2,S3) : K2 = 2..N.
-diff_fnext(I,A,K,S1,S2,S3) :- relevant(I,S1), tlabel(I,(S1,S2),A), tlabel(I,(S1,S3),A), S2 < S3, a_arity(A,N), N >= 1, K = 2..N, fnext(I,K,O1,S1,S2), fnext(I,K,O2,S1,S3), O1 != O2.
+:- relrepr(I,S1), tlabelR(I,(S1,S2),A), tlabelR(I,(S1,S3),A), S2 < S3, a_arity(A,0).
+:- relrepr(I,S1), tlabelR(I,(S1,S2),A), tlabelR(I,(S1,S3),A), S2 < S3, a_arity(A,N), N >= 1, fnext(I,1,O,S1,S2), fnext(I,1,O,S1,S3), not diff_fnext(I,A,K2,S1,S2,S3) : K2 = 2..N.
+diff_fnext(I,A,K,S1,S2,S3) :- relrepr(I,S1), tlabelR(I,(S1,S2),A), tlabelR(I,(S1,S3),A), S2 < S3, a_arity(A,N), N >= 1, K = 2..N, fnext(I,K,O1,S1,S2), fnext(I,K,O2,S1,S3), O1 != O2.
 
 % 1.e. If tlabel(I,(S1,S2),A), then fnext(I,0,0,S1,S2) or fnext(I,1,_,S1,S2)
-:- relevant(I,S1), tlabel(I,(S1,S2),A), not fnext(I,0,0,S1,S2), not fnext(I,1,O,S1,S2) : object(I,O).
+:- relrepr(I,S1), tlabelR(I,(S1,S2),A), not fnext(I,0,0,S1,S2), not fnext(I,1,O,S1,S2) : object(I,O).
 
 % 2. Check application of effects
 %   2.a. If A(OO1) mapped to (S1,S2) and eff(A,(P,OO2),V), then fval(I,(P,OO2),S2,V)
 %   2.b. If A(OO1) mapped to (S1,S2), fval(I,(P,OO2),S1,V) and fval(I,(P,OO2),S2,1-V), then eff(A,(P,OO2),1-V).
 
 % 2.a. If A(OO1) mapped to (S1,S2) and eff(A,(P,OO2),V), then fval(I,(P,OO2),S2,V)
-:- relevant(I,S1), tlabel(I,(S1,S2),A), a_arity(A,0),         fnext(I,0,0,S1,S2),                         eff(A,(P,T),V), map(I,(0,0,0,0),T,OO,K),   not f_static(I,P), fval(I,(P,OO),S2,1-V).
-:- relevant(I,S1), tlabel(I,(S1,S2),A), a_arity(A,1),         fnext(I,1,O1,S1,S2),                        eff(A,(P,T),V), map(I,(O1,0,0,0),T,OO,K),  not f_static(I,P), fval(I,(P,OO),S2,1-V).
-:- relevant(I,S1), tlabel(I,(S1,S2),A), a_arity(A,N), N >= 2, fnext(I,1,O1,S1,S2), fnext(I,2,O2,S1,S2),   eff(A,(P,T),V), map(I,(O1,O2,0,0),T,OO,K), not f_static(I,P), fval(I,(P,OO),S2,1-V).
-:- relevant(I,S1), tlabel(I,(S1,S2),A), a_arity(A,N), N >= 3, fnext(I,1,O1,S1,S2), fnext(I,3,O3,S1,S2),   eff(A,(P,T),V), map(I,(O1,0,O3,0),T,OO,K), not f_static(I,P), fval(I,(P,OO),S2,1-V).
-:- relevant(I,S1), tlabel(I,(S1,S2),A), a_arity(A,N), N >= 3, fnext(I,2,O2,S1,S2), fnext(I,3,O3,S1,S2),   eff(A,(P,T),V), map(I,(0,O2,O3,0),T,OO,K), not f_static(I,P), fval(I,(P,OO),S2,1-V).
-:- relevant(I,S1), tlabel(I,(S1,S2),A), a_arity(A,N), N >= 4, fnext(I,1,O1,S1,S2), fnext(I,4,O4,S1,S2),   eff(A,(P,T),V), map(I,(O1,0,0,O4),T,OO,K), not f_static(I,P), fval(I,(P,OO),S2,1-V).
-:- relevant(I,S1), tlabel(I,(S1,S2),A), a_arity(A,N), N >= 4, fnext(I,2,O2,S1,S2), fnext(I,4,O4,S1,S2),   eff(A,(P,T),V), map(I,(0,O2,0,O4),T,OO,K), not f_static(I,P), fval(I,(P,OO),S2,1-V).
-:- relevant(I,S1), tlabel(I,(S1,S2),A), a_arity(A,N), N >= 4, fnext(I,3,O3,S1,S2), fnext(I,4,O4,S1,S2),   eff(A,(P,T),V), map(I,(0,0,O3,O4),T,OO,K), not f_static(I,P), fval(I,(P,OO),S2,1-V).
+:- relrepr(I,S1), tlabelR(I,(S1,S2),A), a_arity(A,0),         fnext(I,0,0,S1,S2),                         eff(A,(P,T),V), map(I,(0,0,0,0),T,OO,K),   not f_static(I,P), fval(I,(P,OO),S2,1-V).
+:- relrepr(I,S1), tlabelR(I,(S1,S2),A), a_arity(A,1),         fnext(I,1,O1,S1,S2),                        eff(A,(P,T),V), map(I,(O1,0,0,0),T,OO,K),  not f_static(I,P), fval(I,(P,OO),S2,1-V).
+:- relrepr(I,S1), tlabelR(I,(S1,S2),A), a_arity(A,N), N >= 2, fnext(I,1,O1,S1,S2), fnext(I,2,O2,S1,S2),   eff(A,(P,T),V), map(I,(O1,O2,0,0),T,OO,K), not f_static(I,P), fval(I,(P,OO),S2,1-V).
+:- relrepr(I,S1), tlabelR(I,(S1,S2),A), a_arity(A,N), N >= 3, fnext(I,1,O1,S1,S2), fnext(I,3,O3,S1,S2),   eff(A,(P,T),V), map(I,(O1,0,O3,0),T,OO,K), not f_static(I,P), fval(I,(P,OO),S2,1-V).
+:- relrepr(I,S1), tlabelR(I,(S1,S2),A), a_arity(A,N), N >= 3, fnext(I,2,O2,S1,S2), fnext(I,3,O3,S1,S2),   eff(A,(P,T),V), map(I,(0,O2,O3,0),T,OO,K), not f_static(I,P), fval(I,(P,OO),S2,1-V).
+:- relrepr(I,S1), tlabelR(I,(S1,S2),A), a_arity(A,N), N >= 4, fnext(I,1,O1,S1,S2), fnext(I,4,O4,S1,S2),   eff(A,(P,T),V), map(I,(O1,0,0,O4),T,OO,K), not f_static(I,P), fval(I,(P,OO),S2,1-V).
+:- relrepr(I,S1), tlabelR(I,(S1,S2),A), a_arity(A,N), N >= 4, fnext(I,2,O2,S1,S2), fnext(I,4,O4,S1,S2),   eff(A,(P,T),V), map(I,(0,O2,0,O4),T,OO,K), not f_static(I,P), fval(I,(P,OO),S2,1-V).
+:- relrepr(I,S1), tlabelR(I,(S1,S2),A), a_arity(A,N), N >= 4, fnext(I,3,O3,S1,S2), fnext(I,4,O4,S1,S2),   eff(A,(P,T),V), map(I,(0,0,O3,O4),T,OO,K), not f_static(I,P), fval(I,(P,OO),S2,1-V).
 
-:- relevant(I,S1), tlabel(I,(S1,S2),A), a_arity(A,0),         fnext(I,0,0,S1,S2),                         eff(A,(P,T),V), map(I,(0,0,0,0),T,OO,K),       f_static(I,P), fval(I,(P,OO),1-V).
-:- relevant(I,S1), tlabel(I,(S1,S2),A), a_arity(A,1),         fnext(I,1,O1,S1,S2),                        eff(A,(P,T),V), map(I,(O1,0,0,0),T,OO,K),      f_static(I,P), fval(I,(P,OO),1-V).
-:- relevant(I,S1), tlabel(I,(S1,S2),A), a_arity(A,N), N >= 2, fnext(I,1,O1,S1,S2), fnext(I,2,O2,S1,S2),   eff(A,(P,T),V), map(I,(O1,O2,0,0),T,OO,K),     f_static(I,P), fval(I,(P,OO),1-V).
-:- relevant(I,S1), tlabel(I,(S1,S2),A), a_arity(A,N), N >= 3, fnext(I,1,O1,S1,S2), fnext(I,3,O3,S1,S2),   eff(A,(P,T),V), map(I,(O1,0,O3,0),T,OO,K),     f_static(I,P), fval(I,(P,OO),1-V).
-:- relevant(I,S1), tlabel(I,(S1,S2),A), a_arity(A,N), N >= 3, fnext(I,2,O2,S1,S2), fnext(I,3,O3,S1,S2),   eff(A,(P,T),V), map(I,(0,O2,O3,0),T,OO,K),     f_static(I,P), fval(I,(P,OO),1-V).
-:- relevant(I,S1), tlabel(I,(S1,S2),A), a_arity(A,N), N >= 4, fnext(I,1,O1,S1,S2), fnext(I,4,O4,S1,S2),   eff(A,(P,T),V), map(I,(O1,0,0,O4),T,OO,K),     f_static(I,P), fval(I,(P,OO),1-V).
-:- relevant(I,S1), tlabel(I,(S1,S2),A), a_arity(A,N), N >= 4, fnext(I,2,O2,S1,S2), fnext(I,4,O4,S1,S2),   eff(A,(P,T),V), map(I,(0,O2,0,O4),T,OO,K),     f_static(I,P), fval(I,(P,OO),1-V).
-:- relevant(I,S1), tlabel(I,(S1,S2),A), a_arity(A,N), N >= 4, fnext(I,3,O3,S1,S2), fnext(I,4,O4,S1,S2),   eff(A,(P,T),V), map(I,(0,0,O3,O4),T,OO,K),     f_static(I,P), fval(I,(P,OO),1-V).
+:- relrepr(I,S1), tlabelR(I,(S1,S2),A), a_arity(A,0),         fnext(I,0,0,S1,S2),                         eff(A,(P,T),V), map(I,(0,0,0,0),T,OO,K),       f_static(I,P), fval(I,(P,OO),1-V).
+:- relrepr(I,S1), tlabelR(I,(S1,S2),A), a_arity(A,1),         fnext(I,1,O1,S1,S2),                        eff(A,(P,T),V), map(I,(O1,0,0,0),T,OO,K),      f_static(I,P), fval(I,(P,OO),1-V).
+:- relrepr(I,S1), tlabelR(I,(S1,S2),A), a_arity(A,N), N >= 2, fnext(I,1,O1,S1,S2), fnext(I,2,O2,S1,S2),   eff(A,(P,T),V), map(I,(O1,O2,0,0),T,OO,K),     f_static(I,P), fval(I,(P,OO),1-V).
+:- relrepr(I,S1), tlabelR(I,(S1,S2),A), a_arity(A,N), N >= 3, fnext(I,1,O1,S1,S2), fnext(I,3,O3,S1,S2),   eff(A,(P,T),V), map(I,(O1,0,O3,0),T,OO,K),     f_static(I,P), fval(I,(P,OO),1-V).
+:- relrepr(I,S1), tlabelR(I,(S1,S2),A), a_arity(A,N), N >= 3, fnext(I,2,O2,S1,S2), fnext(I,3,O3,S1,S2),   eff(A,(P,T),V), map(I,(0,O2,O3,0),T,OO,K),     f_static(I,P), fval(I,(P,OO),1-V).
+:- relrepr(I,S1), tlabelR(I,(S1,S2),A), a_arity(A,N), N >= 4, fnext(I,1,O1,S1,S2), fnext(I,4,O4,S1,S2),   eff(A,(P,T),V), map(I,(O1,0,0,O4),T,OO,K),     f_static(I,P), fval(I,(P,OO),1-V).
+:- relrepr(I,S1), tlabelR(I,(S1,S2),A), a_arity(A,N), N >= 4, fnext(I,2,O2,S1,S2), fnext(I,4,O4,S1,S2),   eff(A,(P,T),V), map(I,(0,O2,0,O4),T,OO,K),     f_static(I,P), fval(I,(P,OO),1-V).
+:- relrepr(I,S1), tlabelR(I,(S1,S2),A), a_arity(A,N), N >= 4, fnext(I,3,O3,S1,S2), fnext(I,4,O4,S1,S2),   eff(A,(P,T),V), map(I,(0,0,O3,O4),T,OO,K),     f_static(I,P), fval(I,(P,OO),1-V).
 
 % 2.b. If A(OO1) mapped to (S1,S2), fval(I,(P,OO2),S1,V) and fval(I,(P,OO2),S2,1-V), then eff(A,(P,OO2),1-V).
-:- relevant(I,S1), tlabel(I,(S1,S2),A),
+:- relrepr(I,S1), tlabelR(I,(S1,S2),A),
    pred(P), fval(I,(P,null_arg),S1,V), fval(I,(P,null_arg),S2,1-V),
    not eff(A,(P,null_arg),1-V).
 
-:- relevant(I,S1), tlabel(I,(S1,S2),A), a_arity(A,N),
+:- relrepr(I,S1), tlabelR(I,(S1,S2),A), a_arity(A,N),
    pred(P), fval(I,(P,OO),S1,V), fval(I,(P,OO),S2,1-V), constobjtuple(I,OO,1),
    not eff(A,(P,T),1-V) : map(I,(0,0,0,0),T,OO,1),                        N >= 0;
    not eff(A,(P,T),1-V) : map(I,(O1,0,0,0),T,OO,1),  fnext(I,1,O1,S1,S2), N >= 1;
@@ -473,7 +473,7 @@ diff_fnext(I,A,K,S1,S2,S3) :- relevant(I,S1), tlabel(I,(S1,S2),A), tlabel(I,(S1,
    not eff(A,(P,T),1-V) : map(I,(0,0,O3,0),T,OO,1),  fnext(I,3,O3,S1,S2), N >= 3;
    not eff(A,(P,T),1-V) : map(I,(0,0,0,O4),T,OO,1),  fnext(I,4,O4,S1,S2), N >= 4.
 
-:- relevant(I,S1), tlabel(I,(S1,S2),A), a_arity(A,N),
+:- relrepr(I,S1), tlabelR(I,(S1,S2),A), a_arity(A,N),
    pred(P), fval(I,(P,OO),S1,V), fval(I,(P,OO),S2,1-V), constobjtuple(I,OO,2),
    not eff(A,(P,T),1-V) : map(I,(0,0,0,0),T,OO,2),                                             N >= 0;
    not eff(A,(P,T),1-V) : map(I,(O1,0,0,0),T,OO,2),  fnext(I,1,O1,S1,S2),                      N >= 1;
@@ -503,18 +503,64 @@ diff_fnext(I,A,K,S1,S2,S3) :- relevant(I,S1), tlabel(I,(S1,S2),A), tlabel(I,(S1,
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Fundamental constraints
+% Representatives of equivalence classes
+
+% Two states S1 and S2 belong to the same equivalence class if they have the same valuation over chosen atoms
+equiv(I,S,S)       :- node(I,S).
+equiv(I,S1,S2)     :- node(I,S1), node(I,S2), S1 < S2, fval(I,(P,OO),S1,V) : fval(I,(P,OO),S2,V), pred(P), not f_static(I,P).
+not_equiv(I,S1,S2) :- node(I,S1), node(I,S2), S1 < S2, pred(P), not f_static(I,P), fval(I,(P,OO),S1,V), fval(I,(P,OO),S2,1-V).
+
+% Each relevant state S must be represented by exactly one relevant state R
+%{ repr(I,R,S) : relevant(I,R), R <= S } = 1 :- relevant(I,S).
+
+% If R is relevant, it is representative unless other relevant state S < R is equivalent to R
+repr(I,R)      :- relevant(I,R), not_equiv(I,S,R) : relevant(I,S), S < R.
+
+% if R isn't relevant, it is a representative unless no relevant X or state X < S is equivalent to R
+%%repr(I,R)      :- node(I,R), not relevant(I,R),
+%%                  not equiv(I,S,R) : node(I,S), S < R;
+%%                  not equiv(I,R,S) : relevant(I,S), R < S.
+%%repr(I,R,S)    :- relrepr(I,R), equiv(I,R,S).
+%%repr(I,R,S)    :- relrepr(I,R), equiv(I,S,R).
+repr(I,R)      :- node(I,R), not relevant(I,R),
+                  not_equiv(I,S,R) : node(I,S), S < R;
+                  not_equiv(I,R,S) : relevant(I,S), R < S.
+repr(I,R,S)    :- repr(I,R), node(I,S), fval(I,(P,OO),R,V) : fval(I,(P,OO),S,V), pred(P), not f_static(I,P).
+relrepr(I,R)   :- relevant(I,R), repr(I,R).
+
+% If R represents S, both agree on selected predicates (i.e., they are equivalent)
+%:- repr(I,R,S), pred(P), not f_static(I,P), fval(I,(P,OO),R,V), fval(I,(P,OO),S,1-V).
+
+% Redundant constraint
+%:- repr(I,R,S), repr(I,S,T), R < S, S < T.
+
+% R is representative if it represents some state S
+%repr(I,R) :- repr(I,R,S).
+
+% Project transitions over representatives
+%tlabelR(I,(R1,S2),A) :- repr(I,R1,S1), tlabel(I,(S1,S2),A).
+%tlabelR(I,(R1,R2),A) :- repr(I,R1,S1), tlabel(I,(S1,S2),A), repr(I,R2,S2).
+tlabelR(I,(R1,R2),A) :- relevant(I,R1), repr(I,R1,S1), repr(I,R2,S2), tlabel(I,(S1,S2),A).
+
+% No self loops or parallel edges in abstraction
+:- tlabelR(I,(R,R),A).
+:- tlabelR(I,(R1,R2),A), tlabelR(I,(R1,R2),B), A < B.
+
+% F1. Two different representatives are in different equivalence classes
+%:- repr(I,R1), repr(I,R2), R1 < R2, fval(I,(P,OO),R1,V) : fval(I,(P,OO),R2,V), pred(P), not f_static(I,P).
+:- repr(I,R1), repr(I,R2), R1 < R2, equiv(I,R1,R2).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Fundamental constraint
 
 % FACTORED next
-% F1. If (S1,S2) has label A, then A(OO) maps S1 to S2 for some object tuple OO
-:- relevant(I,S1), a_arity(A,0), X = { tlabel(I,(S1,S2),A) : node(I,S2) }, #count {             S2 : tlabel(I,(S1,S2),A), fnext(I,0,0,S1,S2) } != X.
-:- relevant(I,S1), a_arity(A,1), X = { tlabel(I,(S1,S2),A) : node(I,S2) }, #count {          O1,S2 : tlabel(I,(S1,S2),A), fnext(I,1,O1,S1,S2) } != X.
-:- relevant(I,S1), a_arity(A,2), X = { tlabel(I,(S1,S2),A) : node(I,S2) }, #count {       O1,O2,S2 : tlabel(I,(S1,S2),A), fnext(I,1,O1,S1,S2), fnext(I,2,O2,S1,S2) } != X.
-:- relevant(I,S1), a_arity(A,3), X = { tlabel(I,(S1,S2),A) : node(I,S2) }, #count {    O1,O2,O3,S2 : tlabel(I,(S1,S2),A), fnext(I,1,O1,S1,S2), fnext(I,2,O2,S1,S2), fnext(I,3,O3,S1,S2) } != X.
-:- relevant(I,S1), a_arity(A,4), X = { tlabel(I,(S1,S2),A) : node(I,S2) }, #count { O1,O2,O3,O4,S2 : tlabel(I,(S1,S2),A), fnext(I,1,O1,S1,S2), fnext(I,2,O2,S1,S2), fnext(I,3,O3,S1,S2), fnext(I,4,O4,S1,S2) } != X.
-
-% F2. Different nodes are different states with respect to chosen predicates
-:- relevant(I,S1), relevant(I,S2), S1 < S2, fval(I,(P,OO),S2,V) : fval(I,(P,OO),S1,V), pred(P), not f_static(I,P).
+% F2. If (S1,S2) has label A, then A(OO) maps S1 to S2 for some object tuple OO
+:- relrepr(I,S1), a_arity(A,0), X = { tlabelR(I,(S1,S2),A) : node(I,S2) }, #count {             S2 : tlabelR(I,(S1,S2),A), fnext(I,0,0,S1,S2) } != X.
+:- relrepr(I,S1), a_arity(A,1), X = { tlabelR(I,(S1,S2),A) : node(I,S2) }, #count {          O1,S2 : tlabelR(I,(S1,S2),A), fnext(I,1,O1,S1,S2) } != X.
+:- relrepr(I,S1), a_arity(A,2), X = { tlabelR(I,(S1,S2),A) : node(I,S2) }, #count {       O1,O2,S2 : tlabelR(I,(S1,S2),A), fnext(I,1,O1,S1,S2), fnext(I,2,O2,S1,S2) } != X.
+:- relrepr(I,S1), a_arity(A,3), X = { tlabelR(I,(S1,S2),A) : node(I,S2) }, #count {    O1,O2,O3,S2 : tlabelR(I,(S1,S2),A), fnext(I,1,O1,S1,S2), fnext(I,2,O2,S1,S2), fnext(I,3,O3,S1,S2) } != X.
+:- relrepr(I,S1), a_arity(A,4), X = { tlabelR(I,(S1,S2),A) : node(I,S2) }, #count { O1,O2,O3,O4,S2 : tlabelR(I,(S1,S2),A), fnext(I,1,O1,S1,S2), fnext(I,2,O2,S1,S2), fnext(I,3,O3,S1,S2), fnext(I,4,O4,S1,S2) } != X.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -614,6 +660,10 @@ less(V,V+1,A,I,P,2) :- V = 1..max_action_arity-1, action(A), I = 1..2, pred(P),
 #show a_arity/2.
 #show prec/3.
 #show eff/3.
+
+#show repr/2.
+#show repr/3.
+#show tlabelR/3.
 
 % Display applicable actions
 %#show appl(I,A,OO,S)   : appl(I,A,OO,S),                             opt_verbose >= 2.

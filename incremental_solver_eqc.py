@@ -7,7 +7,7 @@ from timeit import default_timer as timer
 from pathlib import Path
 from subprocess import Popen, PIPE
 from termcolor import colored
-from typing import List
+from typing import List, Tuple
 from random import shuffle
 import signal, argparse, re
 import logging
@@ -84,17 +84,23 @@ def sort_lp_files_by_size(files: List[Path]) -> List[Path]:
     files_with_size.sort(key=lambda pair: pair[0])
     return [ fname for _, fname in files_with_size ]
 
-def add_nodes_to_partial_lp_file(fname: Path, partial_fname: Path, inst: int, unsolved_nodes: List, max_nodes_per_iteration: int, logger):
+def add_nodes_to_partial_lp_file(partial_fname: Path, fnames: dict, unsolved_nodes: List[Tuple], max_nodes_per_iteration: int, logger):
     added_nodes = []
+    insts = set([ inst for (inst, node) in unsolved_nodes ])
     with partial_fname.open('a') as fd:
-        fd.write(f'filename("{fname.name}").\n')
-        fd.write(f'partial({inst},"{fname.name}").\n')
-        n = max_nodes_per_iteration if max_nodes_per_iteration > 0 else len(unsolved_nodes)
-        shuffle(unsolved_nodes)
-        for node in unsolved_nodes[:n]:
-            fd.write(f'relevant({inst},{node}).\n')
-            logger.info(colored(f'ADD TO PARTIAL: relevant({inst},{node})', 'blue', attrs=['bold']))
-            added_nodes.append(node)
+        for inst in insts:
+            assert inst in fnames, f'Looking for inst={inst} in fnames={fnames}'
+            fname = fnames[inst]
+            fd.write(f'filename("{fname.name}").\n')
+            fd.write(f'partial({inst},"{fname.name}").\n')
+            nodes = [ node for (i, node) in unsolved_nodes if i == inst ]
+            n = max_nodes_per_iteration if max_nodes_per_iteration > 0 else len(nodes)
+            shuffle(nodes)
+            logger.info(f'add_nodes_to_partial_lp_file: inst={inst}, nodes={nodes}, max_nodes_per_iteration={max_nodes_per_iteration}')
+            for node in nodes[:n]:
+                fd.write(f'relevant({inst},{node}).\n')
+                logger.info(colored(f'ADD TO PARTIAL: relevant({inst},{node})', 'blue', attrs=['bold']))
+                added_nodes.append((inst, node))
     return added_nodes
 
 def solve(solver: Path,
@@ -109,6 +115,7 @@ def solve(solver: Path,
           verify_only: bool,
           ignore_constants: bool,
           max_nodes_per_iteration: int,
+          sat_prepro: int,
           include: List[Path]) -> bool:
     # start clock
     start_time = timer()
@@ -122,7 +129,7 @@ def solve(solver: Path,
 
     # calculate model using solve set
     iterations = 0
-    added_nodes = []
+    num_added_nodes = []
     added_files = []
     calculate_model = True
     solver_times_raw = []
@@ -131,12 +138,17 @@ def solve(solver: Path,
     solver_cpu_times = []
     verify_times_batches = []
 
-    # for checking whether trapped in infinite loop (set of new nodes cannot be subset of previous nodes)
-    unsolved_data = dict(instances=dict(), eq_classes=dict(), solved_instances=set(), already_solved=dict(), sink_nodes=dict())
+    # data for checking whether trapped in infinite loop, dictionary with fields:
+    # - log: list of instances processed in order (same instance may appear multiple times)
+    # - already_added: list of pairs of format (inst, node), both are integers, meaning (inst, node) appear in file 'partial.lp'
+    # - sink_nodes: dict() indexed by inst that points to list of sink nodes in input graph (typically, graphs with node confusions have sinks)
+    # - eq_classes: dict() indexed by inst that poitns to list of equivalance classes for such inst, ordered as they are processed
+    # - fnames: dict() that maps inst to filenames
+    data = dict(log=[], already_added=set(), sink_nodes=dict(), eq_classes=dict(), fnames=dict())
 
     # setup solver command
-    solver_cmd_args = dict(max_time=max_time, max_action_arity=max_action_arity, max_num_predicates=max_num_predicates, solver=solver, best_model_filename=best_model_filename, readable_models_filename=readable_models_filename)
-    solver_cmd_template = 'clingo -c max_action_arity={max_action_arity} -c num_predicates={max_num_predicates} --fast-exit -t 6 --sat-prepro=2 --time-limit={max_time} --stats=0 {solver} {files} | python3 get_best_model.py {best_model_filename} {readable_models_filename}'
+    solver_cmd_args = dict(max_time=max_time, max_action_arity=max_action_arity, max_num_predicates=max_num_predicates, solver=solver, best_model_filename=best_model_filename, readable_models_filename=readable_models_filename, sat_prepro=sat_prepro)
+    solver_cmd_template = 'clingo -c max_action_arity={max_action_arity} -c num_predicates={max_num_predicates} --fast-exit -t 6 --sat-prepro={sat_prepro} --time-limit={max_time} --stats=0 {solver} {files} | python3 get_best_model.py {best_model_filename} {readable_models_filename}'
 
     solution_found = False
     while calculate_model:
@@ -144,11 +156,12 @@ def solve(solver: Path,
 
         if not verify_only:
             files = get_lp_files(solve_path, [ f'{solver.name}', f'{best_model_filename.name}', f'{solution_filename.name}' ])
-            for fname in include:
-                if not fname.exists():
-                    logger.warning(colored(f"Include file '{fname}' doesn't exist; skipping it", 'red'))
-                else:
-                    files.append(fname)
+            if include and iterations > 1:
+                for fname in include:
+                    if not fname.exists():
+                        logger.warning(colored(f"Include file '{fname}' doesn't exist; skipping it", 'red'))
+                    else:
+                        files.append(fname)
             files_str = ' '.join([ str(fname) for fname in files ])
             solver_cmd = solver_cmd_template.format(files=files_str, **solver_cmd_args)
 
@@ -203,28 +216,31 @@ def solve(solver: Path,
             verify_times = []
 
             for fname in test_files:
-                distilled = pg.parse_graph_file(fname, logger)
-
-                if fname.name not in unsolved_data['already_solved']:
-                    unsolved_data['already_solved'][fname.name] = set()
-                if fname.name not in unsolved_data['sink_nodes']:
-                    unsolved_data['sink_nodes'][fname.name] = pg.read_sink_nodes(distilled, logger)
-                    logger.info(f'sinks={unsolved_data["sink_nodes"][fname.name]}')
-
                 verify_start_time = timer()
+                distilled = pg.parse_graph_file(fname, logger)
                 ground_model = pg.ground(lifted_model, distilled, logger)
-                inst, unverified_nodes, eqc = verify_ground_model_using_equivalence_classes(ground_model, unsolved_data['already_solved'][fname.name], logger)
+                inst, unverified_nodes, eqc = verify_ground_model_using_equivalence_classes(ground_model, data['already_added'], logger)
                 verify_elapsed_time = timer() - verify_start_time
                 verify_times.append(verify_elapsed_time)
-                unsolved_data['instances'][fname.name] = inst
-                unsolved_data['eq_classes'][fname.name] = eqc
+
+                if inst not in data['sink_nodes']:
+                    sinks = pg.read_sink_nodes(distilled, logger)
+                    logger.info(f'Sinks: inst={inst}, all={sinks}')
+                    data['sink_nodes'][inst] = sinks
+                    assert inst not in data['eq_classes']
+                    data['eq_classes'][inst] = []
+                    assert inst not in data['fnames']
+                    data['fnames'][inst] = fname
+
+                data['log'].append(inst)
+                data['eq_classes'][inst].append(eqc)
 
                 if unverified_nodes:
-                    unsolved_nodes = [ node for node in unverified_nodes if node not in unsolved_data['already_solved'][fname.name] ]
+                    unsolved_nodes = [ (inst, node) for node in unverified_nodes if (inst, node) not in data['already_added'] ]
                     if not unsolved_nodes:
                         elapsed_time = timer() - start_time
                         logger.info(f'#calls={len(solver_wall_times)}, solve_wall_time={sum(solver_wall_times)}, solve_ground_time={sum(solver_ground_times)}, verify_time={sum(map(lambda batch: sum(batch), verify_times_batches))}, elapsed_time={elapsed_time}')
-                        logger.critical(colored(f'Looping on partial.lp with nodes {unverified_nodes} from {fname.name}; already_solved={unsolved_data["already_solved"][fname.name]}', 'red', attrs = [ 'bold' ]))
+                        logger.critical(colored(f'Looping on partial.lp with nodes {unverified_nodes} from {fname.name}; already_added={data["already_added"]}', 'red', attrs=['bold']))
                         return False
 
                     # copy fname to solve path, and fill in partial.lp
@@ -232,55 +248,48 @@ def solve(solver: Path,
                         if not (solve_path / fname.name).exists():
                             added_files.append((inst, fname))
                             file_copy(fname, solve_path)
-
-                        #with (solve_path / 'partial.lp').open('a') as fd:
-                        #    fd.write(f'filename("{fname.name}").\n')
-                        #    fd.write(f'partial({inst},"{fname.name}").\n')
-                        #    added_nodes.append(0)
-                        #    n = max_nodes_per_iteration if max_nodes_per_iteration > 0 else len(unsolved_nodes)
-                        #    shuffle(unsolved_nodes)
-                        #    for node in unsolved_nodes[:n]:
-                        #        added_nodes[-1] += 1
-                        #        fd.write(f'relevant({inst},{node}).\n')
-                        #        unsolved_data['already_solved'][fname.name].add(node)
-
-                        added = add_nodes_to_partial_lp_file(fname, partial_fname, inst, unsolved_nodes, max_nodes_per_iteration, logger)
-                        unsolved_data['already_solved'][fname.name].update(added)
-                        added_nodes.append(len(added))
+                        added = add_nodes_to_partial_lp_file(partial_fname, data['fnames'], unsolved_nodes, max_nodes_per_iteration, logger)
+                        #logger.info(f'****: already={data["already_added"]}, added={added}')
+                        data['already_added'].update(added)
+                        num_added_nodes.append(len(added))
                         calculate_model = True
                     solution_found = False
                     break
-                else:
-                    unsolved_data['solved_instances'].add(fname.name)
             verify_times_batches.append(verify_times)
         else:
+            '''
             # Solver returns UNSAT. This could be done if there are relevant nodes that are sink nodes.
-            # In such cases, add equivalent nodes to the sinks if any. Otherwise, fail.
-            unsolved_fnames = [ fname for fname in unsolved_data['already_solved'].keys() if fname not in unsolved_data['solved_instances'] ]
-            assert len(unsolved_fnames) == 1, f'unsolved_fnames={unsolved_fnames}'
-            unsolved_fname = unsolved_fnames[0]
-            unsolved_inst = unsolved_data['instances'][unsolved_fname]
-            unsolved_eq_classes = unsolved_data['eq_classes'][unsolved_fname]
-            sinks_in_partial = [ node for node in unsolved_data['already_solved'][unsolved_fname] if node in unsolved_data['sink_nodes'][unsolved_fname] ]
+            # In such cases, add nodes equivalent to the sinks if any. Otherwise, fail.
+            assert len(data['log']) > 0
+            last_inst = data['log'][-1]
+            last_fname = data['fnames'][last_inst]
+            last_eq_classes = data['eq_classes'][last_inst][-1]
+            sinks_in_partial = [ node for (inst, node) in data['already_added'] if inst == last_inst and node in data['sink_nodes'][last_inst] ]
 
-            # calculate equivalent nodes to unsolved sinks that are not already solved
-            unsolved_nodes = []
+            # calculate equivalent nodes to unsolved sinks that are not already added
+            unsolved_nodes = set()
             for sink in sinks_in_partial:
-                for node in unsolved_eq_classes['classes'][unsolved_eq_classes['map'][sink]]:
-                    if node not in unsolved_data['already_solved'][unsolved_fname]:
-                        unsolved_nodes.append(node)
+                equivalent_to_sink = []
+                for node in last_eq_classes['classes'][last_eq_classes['map'][sink]]:
+                    if (inst, node) not in data['already_added']:
+                        equivalent_to_sink.append((inst, node))
+                        #unsolved_nodes.add((inst, node))
+                logger.info(f'Sink: inst={inst}, sink={node}, equivalent={equivalent_to_sink}')
+                unsolved_nodes.update(equivalent_to_sink)
 
             # if some nodes to add, add them and continue solving
             if unsolved_nodes:
-                added = add_nodes_to_partial_lp_file(fname, partial_fname, inst, unsolved_nodes, max_nodes_per_iteration, logger)
-                unsolved_data['already_solved'][fname.name].update(added)
-                added_nodes.append(len(added))
+                added = add_nodes_to_partial_lp_file(partial_fname, data['fnames'], list(unsolved_nodes), max_nodes_per_iteration, logger)
+                #logger.info(f'****: already={data["already_added"]}, added={added}')
+                data['already_added'].update(added)
+                num_added_nodes.append(len(added))
                 calculate_model = True
+            '''
             solution_found = False
 
     elapsed_time = timer() - start_time
-    status_string = colored('OK', 'green', attrs = [ 'bold' ]) if solution_found else colored('Failed', 'red', attrs = [ 'bold' ])
-    logger.info(f'#iterations={iterations}, added_files={added_files}, #added_nodes={sum(added_nodes)} in {added_nodes}')
+    status_string = colored('OK', 'green', attrs=['bold']) if solution_found else colored('Failed', 'red', attrs=['bold'])
+    logger.info(f'#iterations={iterations}, added_files={added_files}, #added_nodes={sum(num_added_nodes)} in {num_added_nodes}')
     logger.info(f'#calls={len(solver_wall_times)}, solve_wall_time={sum(solver_wall_times)}, solve_ground_time={sum(solver_ground_times)}, verify_time={sum(map(lambda batch: sum(batch), verify_times_batches))}, elapsed_time={elapsed_time}, status={status_string}')
     return solution_found
 
@@ -304,6 +313,7 @@ if __name__ == '__main__':
     default_max_nodes_per_iteration = 5
     default_max_action_arity = 3
     default_max_num_predicates = 12
+    default_sat_prepro = 2
 
     # argument parser
     parser = argparse.ArgumentParser(description='Incremental learning of grounded PDDL models.')
@@ -317,6 +327,7 @@ if __name__ == '__main__':
     parser.add_argument('--max-num-predicates', dest='max_num_predicates', type=int, default=default_max_num_predicates, help=f'set maximum number selected predicates (default={default_max_num_predicates})')
     parser.add_argument('--max-time', dest='max_time', type=int, default=default_max_time, help=f'max-time for Clingo solver (0=no limit, default={default_max_time})')
     parser.add_argument('--results', dest='results', action='append', help=f"folder to store results (default=graphs's folder)")
+    parser.add_argument('--sat-prepro', dest='sat_prepro', type=int, default=default_sat_prepro, choices=[0, 1, 2], help=f'set --sat-prepro flag for Clingo solver (default={default_sat_prepro})')
     parser.add_argument('--verify-only', dest='verify_only', action='store_true', help='verify best model found over test set')
     parser.add_argument('solver', type=str, help='solver (.lp file)')
     parser.add_argument('domain', type=str, help="path to domain's folder (it can be a .zip file)")
@@ -329,7 +340,7 @@ if __name__ == '__main__':
 
     # setup domain paths
     domain = Path(args.domain)
-    suffix = ''.join(domain.suffixes)
+    suffix = None if len(domain.suffixes) == 0 else domain.suffixes[-1]
     compressed_formats = [ ext for format in get_unpack_formats() for ext in format[1] ]
     if suffix in compressed_formats:
         # if compressed domain, unpack it in tmp folder
@@ -406,6 +417,7 @@ if __name__ == '__main__':
                           verify_only=args.verify_only,
                           ignore_constants=args.ignore_constants,
                           max_nodes_per_iteration=args.max_nodes_per_iteration,
+                          sat_prepro=args.sat_prepro,
                           include=args.include)
         solution_found = solve(**solve_args)
     except KeyboardInterrupt:
@@ -415,12 +427,12 @@ if __name__ == '__main__':
         if args.verify_only:
             assert best_model_filename.exists()
             best_model_filename.unlink()
-        else:
+        elif solution_found:
             # if solution found, rename best_model_filename to solution_filename
-            assert solution_found == best_model_filename.exists()
-            if solution_found:
-                assert best_model_filename.exists()
-                best_model_filename.rename(solution_filename)
+            assert best_model_filename.exists()
+            best_model_filename.rename(solution_filename)
+        else:
+            logger.info(colored('No solution found!', 'red', attrs=['bold']))
 
         # cleanup
         if tmp_folder != None:
