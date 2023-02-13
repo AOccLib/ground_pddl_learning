@@ -8,8 +8,7 @@ from pathlib import Path
 from subprocess import Popen, PIPE
 from termcolor import colored
 from typing import List, Tuple
-from random import shuffle
-import signal, argparse, re
+import signal, argparse, re, random
 import logging
 
 import parse_and_ground as pg
@@ -95,7 +94,7 @@ def add_nodes_to_partial_lp_file(partial_fname: Path, fnames: dict, unsolved_nod
             fd.write(f'partial({inst},"{fname.name}").\n')
             nodes = [ node for (i, node) in unsolved_nodes if i == inst ]
             n = max_nodes_per_iteration if max_nodes_per_iteration > 0 else len(nodes)
-            shuffle(nodes)
+            random.shuffle(nodes)
             logger.info(f'add_nodes_to_partial_lp_file: inst={inst}, nodes={nodes}, max_nodes_per_iteration={max_nodes_per_iteration}')
             for node in nodes[:n]:
                 fd.write(f'relevant({inst},{node}).\n')
