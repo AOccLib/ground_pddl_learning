@@ -2,7 +2,7 @@ from tqdm import tqdm
 from sys import stdout
 from pathlib import Path
 from itertools import product
-from typing import List
+from typing import List, Dict
 from termcolor import colored
 
 def read_file(filename: Path, logger) -> List[str]:
@@ -115,10 +115,9 @@ def parse_lifted_model(filename: Path, logger) -> dict:
     return lifted_model
 
 # Parse graph from .lp file, specified with facts instance/1, tlabel/3, node/2, f_static/2, fval/3-4, feature/1, and f_arity/2
-def parse_graph_file(filename: Path, logger) -> List[dict]:
+def parse_graph_file(filename: Path, logger) -> Dict:
     assert filename.name[-3:] == '.lp', f"{colored('ERROR:', 'red')} unexpected filename '{filename}'"
-
-    distilled = dict(graph_filename=filename, node=dict(), tlabel=dict(), f_static=dict(), fval=dict(), fval_static=dict(), feature=dict())
+    distilled = dict(graph_filename=filename, node=dict(), tlabel=dict(), constant=dict(), f_static=dict(), fval=dict(), fval_static=dict(), feature=dict(), complexity=dict())
     for line in read_file(filename, logger):
         if line[:9] == 'instance(' and line[-1] == '.':
             fields = parse_record(line[9:-2], logger=logger, debug=False)
@@ -195,14 +194,84 @@ def parse_graph_file(filename: Path, logger) -> List[dict]:
             else:
                 assert distilled['feature'][feature] == arity, f"Arity mismatch for '{feature}': registered={distilled['feature'][feature]}, got={arity}, line=|{line}|"
         elif line[:13] == 'f_complexity(' and line[-1] == '.':
-            pass
+            fields = parse_record(line[13:-2], logger=logger, debug=False)
+            assert len(fields) == 2
+            feature = fields[0]
+            complexity = int(fields[1])
+            if feature not in distilled['complexity']:
+                distilled['complexity'][feature] = complexity
+            else:
+                assert distilled['complexity'][feature] == complexity, f"Complexity mismatch for '{feature}': registered={distilled['complexity'][feature]}, got={complexity}, line=|{line}|"
         elif line[:9] == 'constant(' and line[-1] == '.':
-            pass
+            fields = parse_record(line[9:-2], logger=logger, debug=False)
+            assert len(fields) == 1
+            if inst not in distilled['constant']:
+                distilled['constant'][inst] = set()
+            distilled['constant'][inst].add(fields[0])
         else:
             logger.warning(f'Unrecognized line |{line}|')
     return distilled
 
-def read_sink_nodes(distilled: dict, logger) -> set:
+def write_graph_file_from_distilled(filename: Path, distilled: Dict, logger) -> None:
+    assert filename.name[-3:] == '.lp', f"{colored('ERROR:', 'red')} unexpected filename '{filename}'"
+    instances = [ int(key) for key in distilled['node'] ]
+    with filename.open('w') as fd:
+        fd.write(f'% Automatically generated from distilled on {distilled["graph_filename"]}\n')
+        fd.write(f'% {len(instances)} instance(s) in {instances}\n')
+        for inst in instances:
+            # instance index
+            fd.write(f'instance({inst}).\n')
+
+            # nodes
+            fd.write('% Nodes\n')
+            for node in distilled['node'][inst]:
+                fd.write(f'node({inst},{node}).\n')
+
+            # transitions
+            fd.write('% Transitions\n')
+            for label in distilled['tlabel'][inst]:
+                for (src, dst) in distilled['tlabel'][inst][label]:
+                    fd.write(f'tlabel({inst},({src},{dst}),{label}).\n')
+
+            # constants
+            fd.write('% Constants\n')
+            if inst in distilled['constant']:
+                for const in distilled['constant'][inst]:
+                    fd.write(f'constant({const}).\n')
+
+            # features (arities, complexities and static)
+            fd.write('% Features (predicates)\n')
+            for feature in distilled['feature']:
+                fd.write(f'feature({feature}).\n')
+            for feature in distilled['feature']:
+                arity = distilled['feature'][feature]
+                fd.write(f'f_arity({feature},{arity}).\n')
+            for feature in distilled['complexity']:
+                complexity = distilled['complexity'][feature]
+                fd.write(f'f_complexity({feature},{complexity}).\n')
+            if inst in distilled['f_static']:
+                for feature in distilled['f_static'][inst]:
+                    fd.write(f'f_static({inst},{feature}).\n')
+
+            # valuations for static predicates
+            fd.write('% Valuations for static predicates\n')
+            if inst in distilled['fval_static']:
+                for value in [0, 1]:
+                    for (pred, args) in distilled['fval_static'][inst][value]:
+                        joined = ','.join(args)
+                        if len(args) == 1: joined += ','
+                        fd.write(f'fval({inst},({pred},({joined})),{value}).\n')
+
+            # valuations for dynamic predicates
+            fd.write('% Valuations for dynamic predicates\n')
+            if inst in distilled['fval']:
+                for node in distilled['fval'][inst]['node']:
+                    for ((pred, args), value) in distilled['fval'][inst]['node'][node]:
+                        joined = ','.join(args)
+                        if len(args) == 1: joined += ','
+                        fd.write(f'fval({inst},({pred},({joined})),{node},{value}).\n')
+
+def read_sink_nodes(distilled: Dict, logger) -> set:
     inst = list(distilled['node'].keys())[0]
     nodes = distilled['node'][inst]
     tlabels = distilled['tlabel'][inst]
@@ -244,7 +313,7 @@ def read_sink_nodes(distilled: dict, logger) -> set:
 # CHECK: Grounded actions are obtained by instantiations that do not repeat objects in arguments
 # CHECK: This shouldn't be fixed here, rather it should be a choice determined by an option (pruning is done with filter_fn function)
 
-def ground(lifted_model: dict, distilled: dict, logger, debug: bool = False) -> dict:
+def ground(lifted_model: Dict, distilled: Dict, logger, debug: bool = False) -> dict:
     ground_model = dict(graph_filename=distilled['graph_filename'],
                         pred=lifted_model['pred'],
                         constants=lifted_model['constants'],
@@ -371,7 +440,7 @@ def ground(lifted_model: dict, distilled: dict, logger, debug: bool = False) -> 
     return ground_model
 
 # Check if static predicates in given ground action hold
-def applicable_static(ground_model: dict, inst: int, gaction: dict) -> bool:
+def applicable_static(ground_model: Dict, inst: int, gaction: Dict) -> bool:
     for gprec, index, value in gaction['prec']:
         assert gprec[0] in ground_model['pred']
         if gprec[0] in ground_model['f_static'][inst]:
@@ -384,7 +453,7 @@ def applicable_static(ground_model: dict, inst: int, gaction: dict) -> bool:
     return True
 
 # Check if dynamic predicates in given ground action hold in given node
-def applicable_dynamic(ground_model: dict, inst: int, node_index: int, gaction: dict) -> bool:
+def applicable_dynamic(ground_model: Dict, inst: int, node_index: int, gaction: Dict) -> bool:
     for gprec, index, value in gaction['prec']:
         assert gprec[0] in ground_model['pred']
         if gprec[0] not in ground_model['f_static'][inst]:
@@ -397,12 +466,12 @@ def applicable_dynamic(ground_model: dict, inst: int, node_index: int, gaction: 
     return True
 
 # Check if given ground action is aplicable in give node
-def applicable(ground_model: dict, inst: int, node_index: int, gaction: dict) -> bool:
+def applicable(ground_model: Dict, inst: int, node_index: int, gaction: Dict) -> bool:
     return applicable_static(ground_model, inst, gaction) and applicable_dynamic(ground_model, inst, node_index, gaction)
 
 # Returns index of results node for grounded action applicable at src node
 # If grounded action leads to non-existent node, errors are logged
-def transition(ground_model: dict, inst: int, src_index: int, gaction: dict, f_nodes: dict, f_nodes_r: dict, logger, debug: bool = False) -> List:
+def transition(ground_model: Dict, inst: int, src_index: int, gaction: Dict, f_nodes: Dict, f_nodes_r: Dict, logger, debug: bool = False) -> List:
     dst = set(f_nodes[src_index])
     if debug: logger.debug(f'Src={src_index}.{dst}, gaction={gaction["label"]}{gaction["args"]}')
     for gatom, index, value in gaction['eff']:
