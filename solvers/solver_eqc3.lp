@@ -516,7 +516,7 @@ not_equiv(I,S1,S2) :- node(I,S1), node(I,S2), S1 < S2, pred(P), not f_static(I,P
 % If R is relevant, it is representative unless other relevant state S < R is equivalent to R
 repr(I,R)      :- relevant(I,R), not_equiv(I,S,R) : relevant(I,S), S < R.
 
-% if R isn't relevant, it is a representative unless no relevant X or state X < S is equivalent to R
+% If R isn't relevant, it is a representative unless no relevant X or state X < S is equivalent to R
 %%repr(I,R)      :- node(I,R), not relevant(I,R),
 %%                  not equiv(I,S,R) : node(I,S), S < R;
 %%                  not equiv(I,R,S) : relevant(I,S), R < S.
@@ -525,7 +525,11 @@ repr(I,R)      :- relevant(I,R), not_equiv(I,S,R) : relevant(I,S), S < R.
 repr(I,R)      :- node(I,R), not relevant(I,R),
                   not_equiv(I,S,R) : node(I,S), S < R;
                   not_equiv(I,R,S) : relevant(I,S), R < S.
+
+% Node R represents node S
 repr(I,R,S)    :- repr(I,R), node(I,S), fval(I,(P,OO),R,V) : fval(I,(P,OO),S,V), pred(P), not f_static(I,P).
+
+% Node R is relevant and representative
 relrepr(I,R)   :- relevant(I,R), repr(I,R).
 
 % If R represents S, both agree on selected predicates (i.e., they are equivalent)

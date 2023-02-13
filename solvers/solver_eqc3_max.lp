@@ -510,36 +510,21 @@ equiv(I,S,S)       :- node(I,S).
 equiv(I,S1,S2)     :- node(I,S1), node(I,S2), S1 < S2, fval(I,(P,OO),S1,V) : fval(I,(P,OO),S2,V), pred(P), not f_static(I,P).
 not_equiv(I,S1,S2) :- node(I,S1), node(I,S2), S1 < S2, pred(P), not f_static(I,P), fval(I,(P,OO),S1,V), fval(I,(P,OO),S2,1-V).
 
-% Each relevant state S must be represented by exactly one relevant state R
-%{ repr(I,R,S) : relevant(I,R), R <= S } = 1 :- relevant(I,S).
-
 % If R is relevant, it is representative unless other relevant state S < R is equivalent to R
 repr(I,R)      :- relevant(I,R), not_equiv(I,S,R) : relevant(I,S), S < R.
 
-% if R isn't relevant, it is a representative unless no relevant X or state X < S is equivalent to R
-%%repr(I,R)      :- node(I,R), not relevant(I,R),
-%%                  not equiv(I,S,R) : node(I,S), S < R;
-%%                  not equiv(I,R,S) : relevant(I,S), R < S.
-%%repr(I,R,S)    :- relrepr(I,R), equiv(I,R,S).
-%%repr(I,R,S)    :- relrepr(I,R), equiv(I,S,R).
+% If R isn't relevant, it is a representative unless no relevant X or state X < S is equivalent to R
 repr(I,R)      :- node(I,R), not relevant(I,R),
                   not_equiv(I,S,R) : node(I,S), S < R;
                   not_equiv(I,R,S) : relevant(I,S), R < S.
+
+% Node R represents node S
 repr(I,R,S)    :- repr(I,R), node(I,S), fval(I,(P,OO),R,V) : fval(I,(P,OO),S,V), pred(P), not f_static(I,P).
+
+% Node R is relevant and representative
 relrepr(I,R)   :- relevant(I,R), repr(I,R).
 
-% If R represents S, both agree on selected predicates (i.e., they are equivalent)
-%:- repr(I,R,S), pred(P), not f_static(I,P), fval(I,(P,OO),R,V), fval(I,(P,OO),S,1-V).
-
-% Redundant constraint
-%:- repr(I,R,S), repr(I,S,T), R < S, S < T.
-
-% R is representative if it represents some state S
-%repr(I,R) :- repr(I,R,S).
-
 % Project transitions over representatives
-%tlabelR(I,(R1,S2),A) :- repr(I,R1,S1), tlabel(I,(S1,S2),A).
-%tlabelR(I,(R1,R2),A) :- repr(I,R1,S1), tlabel(I,(S1,S2),A), repr(I,R2,S2).
 tlabelR(I,(R1,R2),A) :- relevant(I,R1), repr(I,R1,S1), repr(I,R2,S2), tlabel(I,(S1,S2),A).
 
 % No self loops or parallel edges in abstraction
@@ -547,7 +532,6 @@ tlabelR(I,(R1,R2),A) :- relevant(I,R1), repr(I,R1,S1), repr(I,R2,S2), tlabel(I,(
 %:- tlabelR(I,(R1,R2),A), tlabelR(I,(R1,R2),B), A < B.
 
 % F1. Two different representatives are in different equivalence classes
-%:- repr(I,R1), repr(I,R2), R1 < R2, fval(I,(P,OO),R1,V) : fval(I,(P,OO),R2,V), pred(P), not f_static(I,P).
 :- repr(I,R1), repr(I,R2), R1 < R2, equiv(I,R1,R2).
 
 
