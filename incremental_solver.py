@@ -7,7 +7,7 @@ from timeit import default_timer as timer
 from pathlib import Path
 from subprocess import Popen, PIPE
 from termcolor import colored
-from typing import List, Tuple
+from typing import List, Tuple, Optional, Dict
 import signal, argparse, re, random
 import logging
 
@@ -100,6 +100,14 @@ def add_nodes_to_partial_lp_file(partial_fname: Path, fnames: dict, unsolved_nod
                 logger.info(colored(f'ADD TO PARTIAL: relevant({inst},{node})', 'blue', attrs=['bold']))
                 added_nodes.append((inst, node))
     return added_nodes
+
+def add_new_instance(inst: int, fname: Path, solve_path: Path, distilled: Optional[Dict] = None, logger = None):
+    if distilled is None:
+        logger.info(f'File copy {fname} to {solve_path}')
+        file_copy(fname, solve_path)
+    else:
+        logger.info(f"Write distilled on '{distilled['graph_filename']}' to {solve_path}")
+        pg.write_graph_file_from_distilled(solve_path / fname.name, distilled, logger)
 
 def solve(solver: Path,
           domain: Path,
@@ -241,9 +249,8 @@ def solve(solver: Path,
                     # copy fname to solve path, and fill in partial.lp
                     if not verify_only:
                         if not (solve_path / fname.name).exists():
+                            add_new_instance(inst, fname, solve_path)
                             added_files.append((inst, fname))
-                            logger.info(f'File copy {fname} to {solve_path}')
-                            file_copy(fname, solve_path)
                         added = add_nodes_to_partial_lp_file(partial_fname, data['fnames'], unsolved_nodes, max_nodes_per_iteration, logger)
                         #logger.info(f'****: already={data["already_added"]}, added={added}')
                         data['already_added'].update(added)
