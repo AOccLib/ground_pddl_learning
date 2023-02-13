@@ -270,8 +270,9 @@ def solve(solver: Path,
                     if not unsolved_nodes:
                         elapsed_time = timer() - start_time
                         logger.info(f'#calls={len(solver_wall_times)}, solve_wall_time={sum(solver_wall_times)}, solve_ground_time={sum(solver_ground_times)}, verify_time={sum(map(lambda batch: sum(batch), verify_times_batches))}, elapsed_time={elapsed_time}')
-                        logger.critical(colored(f'Looping on partial.lp with nodes {unverified_nodes} from {fname.name}; already_added={data["already_added"]}', 'red', attrs=['bold']))
-                        return False
+                        logger.warning(colored(f'Looping on partial.lp with nodes {unverified_nodes} from {fname.name}; already_added={data["already_added"]}', 'magenta', attrs=['bold']))
+                        logger.warning(colored(f'continuing with next file in testing sequence', 'magenta', attrs=['bold']))
+                        continue
 
                     # copy fname to solve path, and fill in partial.lp
                     if not verify_only:
