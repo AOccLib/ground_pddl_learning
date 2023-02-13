@@ -46,22 +46,47 @@ correspond to the same hidden state:
 The constraints on self loops and parallel edges are not fully justified.
 These constraints are removed in solver_eqc3_max.lp
 
-Once the equivalence classes and their representatives are set, 
-solver_eq3.lp replaces relevant/2 and tlabel/3 by relrepr/2 and tlabelR/3
-respectively.
+Once the equivalence classes and their representatives are set,
+solver_eq3.lp replaces relevant/2 and tlabel/3 by relrepr/2 and
+tlabelR/3 respectively.
+
+Output of solver show information about the relevance classes and
+projected transitions.
+
+#show repr/2.
+#show repr/3.
+#show tlabelR/3.
 
 ========================================================================
 
 solver_eqc3_max.lp
 
-The two ad-hoc constraints are replaced by an optimization criteria that
-maximizes the number of equivalence classes:
+The two ad-hoc constraints are replaced by an optimization criteria
+that maximizes the number of equivalence classes:
 
   % Maximize number of equivalence classes
-  #maximize { R@12,I : repr(I,R) }. 
+  #maximize { R@12,I : repr(I,R) }.
 
-This is a justified criteria that subsumes the ad-hoc constrained. 
+This is a justified criteria that subsumes the ad-hoc constrained.
 Submitted paper to ICAPS-23 uses this formulation.
 
 This is the unique change wrt solver_eqc3.lp
+
+========================================================================
+
+solver_noise_simple.lp
+
+Noise model consists in that the truth-value of a random subset of
+atoms is not known. The solver addresses this by letting the solver
+choose the truth-value of such atoms. The optimization criteria minimizes
+the number of such choosing. The solver also outputs the assigned truth
+values.
+
+The first implementation assumes a verifier with complete information so
+it doesn't need to be modified.
+
+Noise atoms are indicates as unknown(I,M,S) where I is instance, M is
+ground atom, and S is state. These facts are randomly chosen and inserted
+into the program. The input must "remove" the valuation of atom M at
+state S from the input.
 
