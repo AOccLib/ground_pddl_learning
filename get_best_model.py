@@ -59,10 +59,13 @@ class Answer:
         self.actions = dict()
         self.optimization = []
         self.appl = []
+        self.valuations = []
     def set_mode(self, mode):
         self.mode = mode
     def add_atom(self, atom):
         self.atoms.append(atom)
+    def add_valuation(self, valuation):
+        self.valuations.append(valuation)
     def add_object(self, obj):
         self.objects.append(obj)
     def add_constant(self, obj):
@@ -209,6 +212,9 @@ def read_answer(line):
         elif fact[:5] == 'repr(':
             fields = parse(fact[5:-1])
             #answer.add_atom(fact)
+        elif fact[:5] == 'fval(':
+            fields = parse(fact[5:-1])
+            answer.add_valuation(fields)
         elif fact == 'verification' or fact == 'synthesis':
             answer.set_mode(fact)
         else:
