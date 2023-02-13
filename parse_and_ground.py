@@ -271,6 +271,15 @@ def write_graph_file_from_distilled(filename: Path, distilled: Dict, logger) -> 
                         if len(args) == 1: joined += ','
                         fd.write(f'fval({inst},({pred},({joined})),{node},{value}).\n')
 
+            # unknowns
+            if 'unknown' in distilled and inst in distilled['unknown']:
+                fd.write('% Unknowns\n')
+                for node in distilled['unknown'][inst]['node']:
+                    for (pred, args) in distilled['unknown'][inst]['node'][node]:
+                        joined = ','.join(args)
+                        if len(args) == 1: joined += ','
+                        fd.write(f'unknown({inst},({pred},({joined})),{node}).\n')
+
 def read_sink_nodes(distilled: Dict, logger) -> set:
     inst = list(distilled['node'].keys())[0]
     nodes = distilled['node'][inst]
