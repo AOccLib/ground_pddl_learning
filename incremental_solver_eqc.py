@@ -246,6 +246,7 @@ def solve(solver: Path,
                     if not verify_only:
                         if not (solve_path / fname.name).exists():
                             added_files.append((inst, fname))
+                            logger.info(f'File copy {fname} to {solve_path}')
                             file_copy(fname, solve_path)
                         added = add_nodes_to_partial_lp_file(partial_fname, data['fnames'], unsolved_nodes, max_nodes_per_iteration, logger)
                         #logger.info(f'****: already={data["already_added"]}, added={added}')
@@ -382,26 +383,30 @@ if __name__ == '__main__':
             exit(-1)
     else:
         continue_solve = args.continue_solve and solve_path.exists()
-        if not continue_solve and not args.verify_only:
+        if not continue_solve:
             solve_path.mkdir(parents=True, exist_ok=True)
             for fname in solve_path.iterdir():
+                print(f'Remove {fname}')
                 fname.unlink()
-
-            # populate solve_path with train set
-            train_path = domain / 'train'
-            if train_path.exists():
-                for fname in train_path.iterdir():
-                    if str(fname).endswith('.lp'):
-                        print(f'File copy {fname} to {solve_path}')
-                        file_copy(fname, solve_path)
-
-            # copy solver to solve_path
-            file_copy(solver, solve_path)
 
     # setup logger
     log_file = solve_path / 'log.txt'
     log_level = logging.INFO if args.debug_level == 0 else logging.DEBUG
     logger = get_logger('solve', log_file, log_level)
+    logger.info(f'Create logger: file={log_file}, level={log_level}')
+
+    # populate solve_path
+    if not args.verify_only and not continue_solve:
+        train_path = domain / 'train'
+        if train_path.exists():
+            for fname in train_path.iterdir():
+                if str(fname).endswith('.lp'):
+                    logger.info(f'File copy {fname} to {solve_path}')
+                    file_copy(fname, solve_path)
+
+        # copy solver to solve_path
+        logger.info(f'File copy {solver} to {solve_path}')
+        file_copy(solver, solve_path)
 
     # describe AWS instance
     if args.aws_instance:
@@ -414,6 +419,7 @@ if __name__ == '__main__':
             logger.error(f'Required solution file {solution_filename} is required for only verification')
             exit(-1)
         else:
+            logger.info(f'File copy {solution_filename} to {best_model_filename}')
             file_copy(solution_filename, best_model_filename)
 
     # solve
