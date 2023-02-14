@@ -2,7 +2,7 @@ from distutils.util import strtobool
 from tempfile import TemporaryDirectory
 from shutil import copy as file_copy
 from shutil import get_unpack_formats, unpack_archive
-from sys import stdin, stdout
+from sys import stdin, stdout, argv
 from timeit import default_timer as timer
 from pathlib import Path
 from subprocess import Popen, PIPE
@@ -139,6 +139,7 @@ def solve(solver: Path,
     # calculate model using solve set
     iterations = 0
     num_added_nodes = []
+    num_unknowns = []
     added_files = []
     calculate_model = True
     solver_times_raw = []
@@ -297,7 +298,7 @@ def solve(solver: Path,
 
     elapsed_time = timer() - start_time
     status_string = colored('OK', 'green', attrs=['bold']) if solution_found else colored('Failed', 'red', attrs=['bold'])
-    logger.info(f'#iterations={iterations}, added_files={added_files}, #added_nodes={sum(num_added_nodes)} in {num_added_nodes}')
+    logger.info(f'#iterations={iterations}, added_files={added_files}, #added_nodes={sum(num_added_nodes)} in {num_added_nodes}, #unknowns={sum(num_unknowns)} in {num_unknowns}')
     logger.info(f'#calls={len(solver_wall_times)}, solve_wall_time={sum(solver_wall_times)}, solve_ground_time={sum(solver_ground_times)}, verify_time={sum(map(lambda batch: sum(batch), verify_times_batches))}, elapsed_time={elapsed_time}, status={status_string}')
     return solution_found
 
@@ -347,6 +348,9 @@ def _setup_seed(seed: int):
 
 
 if __name__ == '__main__':
+    cmdline = ' '.join(argv)
+    print(f'Call: {cmdline}')
+
     # setup proper SIGTERM handler
     g_running_children = []
     def sigterm_handler(_signo, _stack_frame):
@@ -365,7 +369,7 @@ if __name__ == '__main__':
     # setup solver paths
     solver = Path(args.solver)
     solver_name = solver.stem
-    solve_folder = f'{solver_name}_a={args.max_action_arity}_p={args.max_num_predicates}'
+    solve_folder = f'{solver_name}_a={args.max_action_arity}_p={args.max_num_predicates}_s={args.seed}'
 
     # setup domain paths
     domain = Path(args.domain)
@@ -408,6 +412,7 @@ if __name__ == '__main__':
     log_level = logging.INFO if args.debug_level == 0 else logging.DEBUG
     logger = get_logger('solve', log_file, log_level)
     logger.info(f'Create logger: file={log_file}, level={log_level}')
+    logger.info(f'Call: {cmdline}')
 
     # populate solve_path
     if not args.verify_only and not continue_solve:
