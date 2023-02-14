@@ -8,6 +8,8 @@ from pathlib import Path
 from subprocess import Popen, PIPE
 from termcolor import colored
 from typing import List, Tuple, Optional, Dict
+from copy import deepcopy
+from math import ceil, floor
 import signal, argparse, re, random
 import logging
 
@@ -102,13 +104,13 @@ def add_nodes_to_partial_lp_file(partial_fname: Path, fnames: dict, unsolved_nod
                 added_nodes.append((inst, node))
     return added_nodes
 
-def add_new_instance(inst: int, fname: Path, solve_path: Path, distilled: Optional[Dict] = None, logger = None):
-    if distilled is None:
+def add_new_instance(inst: int, fname: Path, solve_path: Path, distillate: Optional[Dict] = None, logger = None):
+    if distillate is None:
         logger.info(f'File copy {fname} to {solve_path}')
         file_copy(fname, solve_path)
     else:
-        logger.info(f"Write distilled on '{distilled['graph_filename']}' to {solve_path}")
-        pg.write_graph_file_from_distilled(solve_path / fname.name, distilled, logger)
+        logger.info(f"Write distillate from '{distillate['graph_filename']}' to {solve_path}")
+        pg.write_graph_file_from_distillate(solve_path / fname.name, distillate, logger)
 
 def solve(solver: Path,
           domain: Path,
@@ -224,14 +226,14 @@ def solve(solver: Path,
 
             for fname in test_files:
                 verify_start_time = timer()
-                distilled = pg.parse_graph_file(fname, logger)
-                ground_model = pg.ground(lifted_model, distilled, logger)
+                distillate = pg.parse_graph_file(fname, logger)
+                ground_model = pg.ground(lifted_model, distillate, logger)
                 inst, unverified_nodes, eqc = verify_ground_model_using_equivalence_classes(ground_model, data['already_added'], logger)
                 verify_elapsed_time = timer() - verify_start_time
                 verify_times.append(verify_elapsed_time)
 
                 if inst not in data['sink_nodes']:
-                    sinks = pg.read_sink_nodes(distilled, logger)
+                    sinks = pg.read_sink_nodes(distillate, logger)
                     logger.info(f'Sinks: inst={inst}, all={sinks}')
                     data['sink_nodes'][inst] = sinks
                     assert inst not in data['eq_classes']
@@ -256,7 +258,6 @@ def solve(solver: Path,
                             add_new_instance(inst, fname, solve_path)
                             added_files.append((inst, fname))
                         added = add_nodes_to_partial_lp_file(partial_fname, data['fnames'], unsolved_nodes, max_nodes_per_iteration, logger)
-                        #logger.info(f'****: already={data["already_added"]}, added={added}')
                         data['already_added'].update(added)
                         num_added_nodes.append(len(added))
                         calculate_model = True
@@ -340,6 +341,11 @@ def _parse_arguments():
     args = parser.parse_args()
     return args
 
+def _setup_seed(seed: int):
+    random.seed(seed)
+    return seed
+
+
 if __name__ == '__main__':
     # setup proper SIGTERM handler
     g_running_children = []
@@ -352,8 +358,9 @@ if __name__ == '__main__':
         exit(0)
     signal.signal(signal.SIGTERM, sigterm_handler)
 
-    # parse arguments
+    # parse arguments and setup seed
     args = _parse_arguments()
+    _setup_seed(args.seed)
 
     # setup solver paths
     solver = Path(args.solver)
