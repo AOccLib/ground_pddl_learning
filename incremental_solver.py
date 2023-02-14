@@ -2,7 +2,7 @@ from distutils.util import strtobool
 from tempfile import TemporaryDirectory
 from shutil import copy as file_copy
 from shutil import get_unpack_formats, unpack_archive
-from sys import stdin, stdout
+from sys import stdin, stdout, argv
 from timeit import default_timer as timer
 from pathlib import Path
 from subprocess import Popen, PIPE
@@ -111,29 +111,68 @@ def add_new_instance(inst: int, fname: Path, solve_path: Path, distillate: Optio
         logger.info(f"Write distillate from '{distillate['graph_filename']}' to {solve_path}")
         pg.write_graph_file_from_distillate(solve_path / fname.name, distillate, logger)
 
-def add_noise_to_distillate(distillate: Dict, noise: float, logger) -> Dict:
+def add_noise_to_distillate(distillate: Dict, noise: float, scope: int, ground_atoms: Dict, logger) -> Dict:
+    assert 'fval' in distillate
+    assert 'unknown' not in distillate
+
+    # create noisy distillate and copy all keys other than 'fval'
     noisy = dict()
     for key in set(distillate.keys()) - set(['fval']):
         noisy.update({key: deepcopy(distillate[key])})
 
+    # create 'fval' and 'unknown' keys in noisy distillate
     noisy.update(fval=dict(), unknown=dict())
-    assert 'fval' in distillate
     for inst in distillate['fval']:
         for key in ['fval', 'unknown']:
             noisy[key].update({inst: dict()})
             noisy[key][inst].update(node=dict())
-        for node in distillate['fval'][inst]['node']:
-            true_atoms = []
-            for (atom, value) in distillate['fval'][inst]['node'][node]:
-                if value == 1:
-                    true_atoms.append((atom, value))
-            m = floor(float(len(true_atoms)) * (1.0 - noise))
-            sample = random.sample(true_atoms, m)
-            removed = set(true_atoms) - set(sample)
-            noisy['fval'][inst]['node'].update({node: sample})
-            noisy['unknown'][inst]['node'].update({node: [atom for (atom, value) in removed]})
 
-    return noisy
+    # add noise to each instance in distillate:
+    #   scope = 0: set to 'unknown'  noise% of true atoms, per state
+    #   scope = 1: set to 'unknown'  noise% of all atoms, per state
+    num_unknowns = 0
+    for inst in distillate['fval']:
+        assert inst in ground_atoms
+        assert inst in distillate['f_static']
+        static_atoms = distillate['f_static'][inst]
+        datoms = [(pred, args) for (pred, args) in ground_atoms[inst].keys() if pred not in static_atoms]
+        datoms = [(pred, args) if args != () else (pred, ('null',)) for (pred, args) in datoms]
+        datoms_set = set(datoms)
+
+        for node in distillate['fval'][inst]['node']:
+            node_atoms = distillate['fval'][inst]['node'][node]
+            if scope == 0:
+                # partition atoms in node
+                true_atoms, false_atoms = [], []
+                for (atom, value) in node_atoms:
+                    if value == 1:
+                        true_atoms.append((atom, value))
+                    else:
+                        false_atoms.append((atom, value))
+
+                # sample true atoms to be preserved, the rest as unknown
+                m = floor(float(len(true_atoms)) * (1.0 - noise))
+                preserve = random.sample(true_atoms, m)
+                unknown = [atom for (atom, value) in set(true_atoms) - set(preserve)]
+                preserve.extend(false_atoms)
+                assert len(node_atoms) == len(preserve) + len(unknown)
+            else:
+                # sample subset from all atoms to be set as unknown
+                m = ceil(float(len(datoms)) * noise)
+                unknown = random.sample(datoms, m)
+                complement = datoms_set - set(unknown)
+                preserve = [ (atom, value) for (atom, value) in node_atoms if atom in complement ]
+            assert set(preserve).issubset(set(node_atoms))
+            if not  set(unknown).issubset(datoms_set):
+                print(unknown)
+                print(datoms_set)
+            assert set(unknown).issubset(datoms_set)
+
+            # set preserved and unknown atoms in noisy distillate
+            noisy['fval'][inst]['node'].update({node: preserve})
+            noisy['unknown'][inst]['node'].update({node: unknown})
+            num_unknowns += len(unknown)
+    return noisy, num_unknowns
 
 def solve(solver: Path,
           domain: Path,
@@ -149,7 +188,8 @@ def solve(solver: Path,
           max_nodes_per_iteration: int,
           sat_prepro: int,
           include: List[Path],
-          noise: float) -> bool:
+          noise: float,
+          noise_scope: int) -> bool:
     # start clock
     start_time = timer()
 
@@ -163,6 +203,7 @@ def solve(solver: Path,
     # calculate model using solve set
     iterations = 0
     num_added_nodes = []
+    num_unknowns = []
     added_files = []
     calculate_model = True
     solver_times_raw = []
@@ -282,9 +323,12 @@ def solve(solver: Path,
                     if not verify_only:
                         if not (solve_path / fname.name).exists():
                             if noise > 0.0:
-                                noisy_distillate = add_noise_to_distillate(distillate, noise, logger)
+                                noisy_distillate, num_unknowns_inst = add_noise_to_distillate(distillate, noise, noise_scope, ground_model['gatoms'], logger)
+                                logger.info(f'{num_unknowns_inst} unknown atom(s) in instance {inst}')
+                                num_unknowns.append(num_unknowns_inst)
                             else:
                                 noisy_distillate = None
+                                num_unknowns.append(0)
                             add_new_instance(inst, fname, solve_path, distillate=noisy_distillate, logger=logger)
                             added_files.append((inst, fname))
                         added = add_nodes_to_partial_lp_file(partial_fname, data['fnames'], unsolved_nodes, max_nodes_per_iteration, logger)
@@ -299,7 +343,7 @@ def solve(solver: Path,
 
     elapsed_time = timer() - start_time
     status_string = colored('OK', 'green', attrs=['bold']) if solution_found else colored('Failed', 'red', attrs=['bold'])
-    logger.info(f'#iterations={iterations}, added_files={added_files}, #added_nodes={sum(num_added_nodes)} in {num_added_nodes}')
+    logger.info(f'#iterations={iterations}, added_files={added_files}, #added_nodes={sum(num_added_nodes)} in {num_added_nodes}, #unknowns={sum(num_unknowns)} in {num_unknowns}')
     logger.info(f'#calls={len(solver_wall_times)}, solve_wall_time={sum(solver_wall_times)}, solve_ground_time={sum(solver_ground_times)}, verify_time={sum(map(lambda batch: sum(batch), verify_times_batches))}, elapsed_time={elapsed_time}, status={status_string}')
     return solution_found
 
@@ -342,8 +386,10 @@ def _parse_arguments():
     # unknown atoms
     default_seed = 0
     default_noise = 0
+    default_scope = 0
     unknown = parser.add_argument_group('random generation of unknown atoms (disabled by default noise of zero)')
     unknown.add_argument('--noise', type=float, default=default_noise, help=f'%% of atoms per state to mark as unknwon (default={default_noise})')
+    unknown.add_argument('--scope', type=int, choices=[0, 1], default=default_scope, help=f'set scope for adding noise (0=true atoms, 1=all atoms, default={default_scope})')
     unknown.add_argument('--seed', type=int, default=default_seed, help=f'seed for random generator (default={default_seed})')
 
     # parse arguments
@@ -356,6 +402,9 @@ def _setup_seed(seed: int):
 
 
 if __name__ == '__main__':
+    cmdline = ' '.join(argv)
+    print(f'Call: {cmdline}')
+
     # setup proper SIGTERM handler
     g_running_children = []
     def sigterm_handler(_signo, _stack_frame):
@@ -374,7 +423,10 @@ if __name__ == '__main__':
     # setup solver paths
     solver = Path(args.solver)
     solver_name = solver.stem
-    solve_folder = f'{solver_name}_a={args.max_action_arity}_p={args.max_num_predicates}'
+    if args.noise == 0:
+        solve_folder = f'{solver_name}_a={args.max_action_arity}_p={args.max_num_predicates}_s={args.seed}'
+    else:
+        solve_folder = f'{solver_name}_a={args.max_action_arity}_p={args.max_num_predicates}_scope={args.scope}_noise={args.noise}_s={args.seed}'
 
     # setup domain paths
     domain = Path(args.domain)
@@ -417,6 +469,7 @@ if __name__ == '__main__':
     log_level = logging.INFO if args.debug_level == 0 else logging.DEBUG
     logger = get_logger('solve', log_file, log_level)
     logger.info(f'Create logger: file={log_file}, level={log_level}')
+    logger.info(f'Call: {cmdline}')
 
     # populate solve_path
     if not args.verify_only and not continue_solve:
@@ -462,7 +515,8 @@ if __name__ == '__main__':
                           max_nodes_per_iteration=args.max_nodes_per_iteration,
                           sat_prepro=args.sat_prepro,
                           include=args.include,
-                          noise=args.noise)
+                          noise=args.noise,
+                          noise_scope=args.scope)
         solution_found = solve(**solve_args)
     except KeyboardInterrupt:
         logger.warning(colored('Process INTERRUPTED by keyboard (ctrl-C)!', 'red'))
