@@ -8,6 +8,8 @@ from pathlib import Path
 from subprocess import Popen, PIPE
 from termcolor import colored
 from typing import List, Tuple, Optional, Dict
+from copy import deepcopy
+from math import ceil, floor
 import signal, argparse, re, random
 import logging
 
@@ -101,13 +103,37 @@ def add_nodes_to_partial_lp_file(partial_fname: Path, fnames: dict, unsolved_nod
                 added_nodes.append((inst, node))
     return added_nodes
 
-def add_new_instance(inst: int, fname: Path, solve_path: Path, distilled: Optional[Dict] = None, logger = None):
-    if distilled is None:
+def add_new_instance(inst: int, fname: Path, solve_path: Path, distillate: Optional[Dict] = None, logger = None):
+    if distillate is None:
         logger.info(f'File copy {fname} to {solve_path}')
         file_copy(fname, solve_path)
     else:
-        logger.info(f"Write distilled on '{distilled['graph_filename']}' to {solve_path}")
-        pg.write_graph_file_from_distilled(solve_path / fname.name, distilled, logger)
+        logger.info(f"Write distillate from '{distillate['graph_filename']}' to {solve_path}")
+        pg.write_graph_file_from_distillate(solve_path / fname.name, distillate, logger)
+
+def add_noise_to_distillate(distillate: Dict, noise: float, logger) -> Dict:
+    noisy = dict()
+    for key in set(distillate.keys()) - set(['fval']):
+        noisy.update({key: deepcopy(distillate[key])})
+
+    noisy.update(fval=dict(), unknown=dict())
+    assert 'fval' in distillate
+    for inst in distillate['fval']:
+        for key in ['fval', 'unknown']:
+            noisy[key].update({inst: dict()})
+            noisy[key][inst].update(node=dict())
+        for node in distillate['fval'][inst]['node']:
+            true_atoms = []
+            for (atom, value) in distillate['fval'][inst]['node'][node]:
+                if value == 1:
+                    true_atoms.append((atom, value))
+            m = floor(float(len(true_atoms)) * (1.0 - noise))
+            sample = random.sample(true_atoms, m)
+            removed = set(true_atoms) - set(sample)
+            noisy['fval'][inst]['node'].update({node: sample})
+            noisy['unknown'][inst]['node'].update({node: [atom for (atom, value) in removed]})
+
+    return noisy
 
 def solve(solver: Path,
           domain: Path,
@@ -122,7 +148,8 @@ def solve(solver: Path,
           ignore_constants: bool,
           max_nodes_per_iteration: int,
           sat_prepro: int,
-          include: List[Path]) -> bool:
+          include: List[Path],
+          noise: float) -> bool:
     # start clock
     start_time = timer()
 
@@ -223,14 +250,14 @@ def solve(solver: Path,
 
             for fname in test_files:
                 verify_start_time = timer()
-                distilled = pg.parse_graph_file(fname, logger)
-                ground_model = pg.ground(lifted_model, distilled, logger)
+                distillate = pg.parse_graph_file(fname, logger)
+                ground_model = pg.ground(lifted_model, distillate, logger)
                 inst, unverified_nodes = verify_ground_model(ground_model, logger)
                 verify_elapsed_time = timer() - verify_start_time
                 verify_times.append(verify_elapsed_time)
 
                 if inst not in data['sink_nodes']:
-                    sinks = pg.read_sink_nodes(distilled, logger)
+                    sinks = pg.read_sink_nodes(distillate, logger)
                     logger.info(f'Sinks: inst={inst}, all={sinks}')
                     data['sink_nodes'][inst] = sinks
                     assert inst not in data['fnames']
@@ -243,16 +270,24 @@ def solve(solver: Path,
                     if not unsolved_nodes:
                         elapsed_time = timer() - start_time
                         logger.info(f'#calls={len(solver_wall_times)}, solve_wall_time={sum(solver_wall_times)}, solve_ground_time={sum(solver_ground_times)}, verify_time={sum(map(lambda batch: sum(batch), verify_times_batches))}, elapsed_time={elapsed_time}')
-                        logger.critical(colored(f'Looping on partial.lp with nodes {unverified_nodes} from {fname.name}; already_added={data["already_added"]}', 'red', attrs=['bold']))
-                        return False
+                        if noise == 0.0:
+                            logger.critical(colored(f'Looping on partial.lp with nodes {unverified_nodes} from {fname.name}; already_added={data["already_added"]}', 'red', attrs=['bold']))
+                            return False
+                        else:
+                            logger.warning(colored(f'Looping on partial.lp with nodes {unverified_nodes} from {fname.name}; already_added={data["already_added"]}', 'magenta', attrs=['bold']))
+                            logger.warning(colored(f'continuing with next file in testing sequence', 'magenta', attrs=['bold']))
+                            continue
 
                     # copy fname to solve path, and fill in partial.lp
                     if not verify_only:
                         if not (solve_path / fname.name).exists():
-                            add_new_instance(inst, fname, solve_path)
+                            if noise > 0.0:
+                                noisy_distillate = add_noise_to_distillate(distillate, noise, logger)
+                            else:
+                                noisy_distillate = None
+                            add_new_instance(inst, fname, solve_path, distillate=noisy_distillate, logger=logger)
                             added_files.append((inst, fname))
                         added = add_nodes_to_partial_lp_file(partial_fname, data['fnames'], unsolved_nodes, max_nodes_per_iteration, logger)
-                        #logger.info(f'****: already={data["already_added"]}, added={added}')
                         data['already_added'].update(added)
                         num_added_nodes.append(len(added))
                         calculate_model = True
@@ -304,9 +339,21 @@ def _parse_arguments():
     driver.add_argument('--results', dest='results', action='append', help=f"folder to store results (default=graphs's folder)")
     driver.add_argument('--verify-only', dest='verify_only', action='store_true', help='verify best model found over test set')
 
+    # unknown atoms
+    default_seed = 0
+    default_noise = 0
+    unknown = parser.add_argument_group('random generation of unknown atoms (disabled by default noise of zero)')
+    unknown.add_argument('--noise', type=float, default=default_noise, help=f'%% of atoms per state to mark as unknwon (default={default_noise})')
+    unknown.add_argument('--seed', type=int, default=default_seed, help=f'seed for random generator (default={default_seed})')
+
     # parse arguments
     args = parser.parse_args()
     return args
+
+def _setup_seed(seed: int):
+    random.seed(seed)
+    return seed
+
 
 if __name__ == '__main__':
     # setup proper SIGTERM handler
@@ -320,8 +367,9 @@ if __name__ == '__main__':
         exit(0)
     signal.signal(signal.SIGTERM, sigterm_handler)
 
-    # parse arguments
+    # parse arguments and setup seed
     args = _parse_arguments()
+    _setup_seed(args.seed)
 
     # setup solver paths
     solver = Path(args.solver)
@@ -413,7 +461,8 @@ if __name__ == '__main__':
                           ignore_constants=args.ignore_constants,
                           max_nodes_per_iteration=args.max_nodes_per_iteration,
                           sat_prepro=args.sat_prepro,
-                          include=args.include)
+                          include=args.include,
+                          noise=args.noise)
         solution_found = solve(**solve_args)
     except KeyboardInterrupt:
         logger.warning(colored('Process INTERRUPTED by keyboard (ctrl-C)!', 'red'))
