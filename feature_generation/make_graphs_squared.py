@@ -201,7 +201,7 @@ class SquaredRole(Role):
         return f'squared_lp_{self.concept}_rp'
     def denotation(self, state: O2DState):
         concept = self.concept.denotation(state)
-        return set([ (x,x) for x in concept])
+        return set([ (x, x) for x in concept])
 
 class FalsumConcept(Concept):
     def __init__(self):
@@ -322,7 +322,7 @@ class ERConcept(Concept):
         # E[R.C] = { x : there is y such that R(x,y) and C(y) }
         role = self.role.denotation(state)
         concept = self.concept.denotation(state)
-        return set([ x for (x,y) in role if y in concept ])
+        return set([ x for (x, y) in role if y in concept ])
 
 # Predicates:
 # - nullary predicates: (C \subseteq C') for concepts C and C'
@@ -452,7 +452,7 @@ def uses(concept_or_role1,concept_or_role2):
     elif hasattr(concept_or_role1, 'role1') and hasattr(concept_or_role1, 'role2'):
         return concept_or_role1.role1 is concept_or_role2 or concept_or_role1.role2 is concept_or_role2
 
-def replace(concept_or_role,to_replace,replacement):
+def replace(concept_or_role, to_replace, replacement):
     if issubclass(type(to_replace),Concept):
         if hasattr(concept_or_role, 'concept_set'):
             for x in concept_or_role.concept_set:
@@ -471,7 +471,7 @@ def replace(concept_or_role,to_replace,replacement):
             elif concept_or_role.role2 is to_replace:
                 concept_or_role.role2 = replacement
 
-def prune_and_replace(ext,i,j,new,discarded):
+def prune_and_replace(ext, i, j, new, discarded):
     # if pruning needed, keep lower complexity role
     existing = ext[i][j]
     if existing.complexity() > new.complexity():
@@ -713,7 +713,7 @@ def generate_composition_squared_roles(primitive: List[Role], squared: List[Role
     role_names = set()
 
     # generate compositions of primitive roles and squared roles
-    for (r1,r2) in chain(product(squared,primitive),product(primitive,squared)):
+    for (r1,r2) in chain(product(squared, primitive),product(primitive, squared)):
             r = CompositionRole(role1 = r1, role2=r2)
             r.set_denotations(states)
             i, j = subsumed(r, [ roles, ext_roles ])

@@ -310,7 +310,7 @@ class ERConcept(Concept):
         # E[R.C] = { x : there is y such that R(x,y) and C(y) }
         role = self.role.denotation(state)
         concept = self.concept.denotation(state)
-        return set([ x for (x,y) in role if y in concept ])
+        return set([ x for (x, y) in role if y in concept ])
 
 # Role restrictions (full, left and right) using concepts
 class FullRestrictionRole(Role):
@@ -331,7 +331,7 @@ class FullRestrictionRole(Role):
         role = self.role.denotation(state)
         lconcept = self.lconcept.denotation(state)
         rconcept = self.rconcept.denotation(state)
-        return set([ (x,y) for (x,y) in role if x in lconcept and y in rconcept ])
+        return set([ (x, y) for (x, y) in role if x in lconcept and y in rconcept ])
 
 class RightRestrictionRole(Role):
     def __init__(self, role: Role, rconcept: Concept):
@@ -348,7 +348,7 @@ class RightRestrictionRole(Role):
         # RR[R.RC] = { (x,y) : R(x,y) & RC(y) }
         role = self.role.denotation(state)
         rconcept = self.rconcept.denotation(state)
-        return set([ (x,y) for (x,y) in role if y in rconcept ])
+        return set([ (x, y) for (x, y) in role if y in rconcept ])
 
 class LeftRestrictionRole(Role):
     def __init__(self, role: Role, lconcept: Concept):
@@ -365,7 +365,7 @@ class LeftRestrictionRole(Role):
         # LR[LC.R] = { (x,y) : R(x,y) & LC(x) }
         role = self.role.denotation(state)
         lconcept = self.lconcept.denotation(state)
-        return set([ (x,y) for (x,y) in role if x in lconcept ])
+        return set([ (x, y) for (x, y) in role if x in lconcept ])
 
 # Predicates:
 # - nullary predicates: (C \subseteq C') for concepts C and C'

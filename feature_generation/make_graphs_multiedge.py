@@ -310,22 +310,22 @@ class ERConcept(Concept):
         # E[R.C] = { x : there is y such that R(x,y) and C(y) }
         role = self.role.denotation(state)
         concept = self.concept.denotation(state)
-        return set([ x for (x,y) in role if y in concept ])
+        return set([ x for (x, y) in role if y in concept ])
 
 class CardinalityConcept(Concept):
-    def __init__(self, role: Role, card: int):
+    def __init__(self, role: Role, n: int):
         assert type(role) != FalsumRole
         super().__init__()
         self.role = role
-        self.card = card
+        self.n = n
     def complexity(self):
         return 1 + self.role.complexity()
     def __str__(self):
-        return f'card{self.card}_lp_{self.role}_rp'
+        return f'card{self.n}_lp_{self.role}_rp'
     def denotation(self, state: O2DState):
-        # E[R.C] = { x : there is y such that R(x,y) and C(y) }
+        # Card[R.n] = { x : #{ y : R(x,y) } == n }
         role = self.role.denotation(state)
-        return set([ x for (x,y) in role if len([(a,b) for (a,b) in role if a == x ]) == self.card ])
+        return set([ x for (x, y) in role if len([(a, b) for (a, b) in role if a == x ]) == self.n ])
 
 # Role restrictions (full, left and right) using concepts
 class FullRestrictionRole(Role):
@@ -346,7 +346,7 @@ class FullRestrictionRole(Role):
         role = self.role.denotation(state)
         lconcept = self.lconcept.denotation(state)
         rconcept = self.rconcept.denotation(state)
-        return set([ (x,y) for (x,y) in role if x in lconcept and y in rconcept ])
+        return set([ (x, y) for (x, y) in role if x in lconcept and y in rconcept ])
 
 class RightRestrictionRole(Role):
     def __init__(self, role: Role, rconcept: Concept):
@@ -363,7 +363,7 @@ class RightRestrictionRole(Role):
         # RR[R.RC] = { (x,y) : R(x,y) & RC(y) }
         role = self.role.denotation(state)
         rconcept = self.rconcept.denotation(state)
-        return set([ (x,y) for (x,y) in role if y in rconcept ])
+        return set([ (x, y) for (x, y) in role if y in rconcept ])
 
 class LeftRestrictionRole(Role):
     def __init__(self, role: Role, lconcept: Concept):
@@ -380,7 +380,7 @@ class LeftRestrictionRole(Role):
         # LR[LC.R] = { (x,y) : R(x,y) & LC(x) }
         role = self.role.denotation(state)
         lconcept = self.lconcept.denotation(state)
-        return set([ (x,y) for (x,y) in role if x in lconcept ])
+        return set([ (x, y) for (x, y) in role if x in lconcept ])
 
 # Predicates:
 # - nullary predicates: (C \subseteq C') for concepts C and C'
@@ -761,11 +761,11 @@ def generate_predicates(o2d_concepts_and_roles: Dict, states: List[O2DState], ma
     for i, c in enumerate(concepts):
         logger.debug(f'Concept c{i}.{c}/{c.complexity()}')
 
-    cardinality_concepts = [CardinalityConcept(role,n) for role in primitive_roles for n in [1,2] if type(role) is not FalsumRole]
+    cardinality_concepts = [CardinalityConcept(role, n) for role in primitive_roles for n in [1,2] if type(role) is not FalsumRole]
     #primitive_concepts.extend(cardinality_concepts)
 
     # Restriction of roles
-    roles.extend(generate_role_restrictions(primitive_roles, concepts, primitive_concepts+cardinality_concepts, states, 2 + max_complexity))
+    roles.extend(generate_role_restrictions(primitive_roles, concepts, primitive_concepts + cardinality_concepts, states, 2 + max_complexity))
 
     # Limited concept conjunctions: primitives + cardinality restrictions
     concepts.extend(generate_concepts(primitive_concepts+cardinality_concepts, [], states, 2 + max_complexity, [('Concept', 'Concept', ConjunctiveConcept)]))
@@ -928,7 +928,7 @@ def get_o2d_state_from_ext_state(i: int, ext_state: Dict, primitive_concepts_and
         denotations[name] = ext_state[name] if name in ext_state else set()
     return O2DState(i, objects, denotations)
 
-def get_o2d_states(problems, transitions: List[list], symb2spatial: Dict, o2d_concepts_and_roles: Dict):
+def get_o2d_states(problems, transitions: List[Transitions], symb2spatial: Dict, o2d_concepts_and_roles: Dict):
     assert len(problems) == len(transitions)
     primitive_concepts_and_roles = o2d_concepts_and_roles['concepts'] + o2d_concepts_and_roles['roles']
     states = []
@@ -980,7 +980,7 @@ def hidden_state(s, domain):
         hidden_state = s
     return hidden_state
 
-def hidden_action(operator,domain):
+def hidden_action(operator, domain):
     if domain == "blocks4ops-slots":
         operator_type = operator.name.split(" ")[0].strip("(")
         if operator_type == "pickup" or operator_type == "putdown":
@@ -1032,22 +1032,22 @@ def get_planning_transitions(problems, tasks, k=1) -> List[Transitions]:
         while queue:
             node = queue.popleft()
             src = tuple(sorted(node.state))
-            hidden_s = hidden_state(node.state,domain)
+            hidden_s = hidden_state(node.state, domain)
             # sample k successor for each hidden action (unless there are less j<k successors, then sample j)
             successors = shuffle(tasks[i].get_successor_states(node.state))
             for operator, successor_state in tasks[i].get_successor_states(node.state):
                 dst = tuple(sorted(successor_state))
-                hidden_a = hidden_action(operator,domain)
-                if (hidden_s,hidden_a) not in num_edges:
-                    num_edges[(hidden_s,hidden_a)] = 0
-                if num_edges[(hidden_s,hidden_a)] < k:
+                hidden_a = hidden_action(operator, domain)
+                if (hidden_s, hidden_a) not in num_edges:
+                    num_edges[(hidden_s, hidden_a)] = 0
+                if num_edges[(hidden_s, hidden_a)] < k:
                     transition = (src, operator.name, dst)
 
                     # duplicate detection
                     if transition not in transitions_in_problem:
                         queue.append(searchspace.make_child_node(node, operator, successor_state))
                         transitions_in_problem.append(transition)
-                        num_edges[(hidden_s,hidden_a)] += 1
+                        num_edges[(hidden_s, hidden_a)] += 1
         transitions.append(tuple(sorted(transitions_in_problem)))
 
         elapsed_time = timer() - start_time
