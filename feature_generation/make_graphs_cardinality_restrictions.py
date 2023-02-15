@@ -1164,7 +1164,9 @@ if __name__ == '__main__':
     # create output folder`
     output_folder = f'{domain_name}_complexity={args.max_complexity}'
     output_path = (domain_path if args.output_path is None else Path(args.output_path)) / output_folder
+    output_path_graphs = output_path / 'test'
     output_path.mkdir(parents=True, exist_ok=True)
+    output_path_graphs.mkdir(parents=True, exist_ok=True)
 
     # setup logger
     log_file = output_path / 'log.txt'
@@ -1253,7 +1255,7 @@ if __name__ == '__main__':
     # Last thing is to produce .lp files
     start_time = timer()
     logger.info(colored(f'Write graph files...', 'red', attrs = [ 'bold' ]))
-    write_graph_files(predicates, states, states_dict, transitions, o2d_states, offsets, output_path, problem_filenames, symb2spatial)
+    write_graph_files(predicates, states, states_dict, transitions, o2d_states, offsets, output_path_graphs, problem_filenames, symb2spatial)
     elapsed_time = timer() - start_time
     logger.info(colored(f'{len(transitions)} file(s) written in {elapsed_time:.3f} second(s)', 'blue'))
 
