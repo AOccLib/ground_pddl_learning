@@ -1193,10 +1193,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Incremental learning of grounded PDDL models.')
     parser.add_argument('--debug-level', dest='debug_level', type=int, default=default_debug_level, help=f'set debug level (default={default_debug_level})')
     parser.add_argument('--complexity-measure', dest='complexity_measure', type=str, choices=['sum', 'height'], default=default_complexity_measure, help=f"complexity measure (either sum or height, default='{default_complexity_measure}')")
-    parser.add_argument('--max-complexity', dest='max_complexity', type=int, default=default_max_complexity, help=f'max complexity for construction of concepts and rules (0=no limit, default={default_max_complexity})')
     parser.add_argument('--symb2spatial', dest='symb2spatial', type=str, default=default_symb2spatial, help=f"symb2spatial file (default='{default_symb2spatial}')")
     parser.add_argument('path', type=str, help="path to folder containing 'domain.pddl' and .pddl problem files (path name used as key into symb2spatial registry)")
     parser.add_argument('--num-edges', dest='num_edges', type=int, default=default_num_edges, help=f"max number of o2d edges to sample for each hidden edge")
+    parser.add_argument('max_complexity', type=int, help=f'max complexity for construction of concepts and rules (0=no limit)')
     args = parser.parse_args()
 
     # setup domain path and name
