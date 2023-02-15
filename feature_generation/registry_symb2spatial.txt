@@ -44,7 +44,7 @@
                                           ["smaller(X,Z)",       ["smaller(X,Y)", "smaller(Y,Z)"]] ],
                        "shape/2"      : [ ["shape(X,rectangle)", ["object(X)"]] ]
                      } },
-    "blocks3ops-slots" :
+  "blocks3ops-slots" :
     { "constants"  : ["rectangle", "t"],
       "o2d"        : ["table/1", "block/1", "below/2", "smaller/2", "shape/2", "left/2"],
       "facts"      : [ ["table",["t"]] ],
@@ -111,7 +111,7 @@
     { "constants"  : ["robot","leftgrip","rightgrip","rr","lr","circleshape","rectangle","robotshape","grippershape"],
       "o2d"        : ["robot/1", "gripper/1", "ball/1", "room/1", "left/2", "below/2", "overlap/2", "smaller/2", "shape/2"],
       "facts"      : [ ["robot",["robot"]], ["gripper",["leftgrip"]], ["gripper",["rightgrip"]], ["room",["rr"]], ["room",["lr"]], ["left",["lr","rr"]] ],
-      "rules"      : { 
+      "rules"      : {
                        "overlap/2"    : [ ["overlap(X,robot)",   ["at_robby(X)"]],
                                           ["overlap(X,Y)",       ["at(X,Y)"]],
                                           ["overlap(X,Y)",       ["carry(X,Y)"]],
@@ -129,7 +129,7 @@
                                           ["shape(X,robotshape)",         ["robot(X)"]],
                                           ["shape(X,rectangle)",         ["room(X)"]] ]
                      } },
-      "gripper-slots" :
+  "gripper-slots" :
     { "constants"  : ["robot","leftgrip","rightgrip","rr","lr","circleshape","rectangle","robotshape","grippershape"],
       "o2d"        : ["robot/1", "gripper/1", "ball/1", "room/1", "left/2", "below/2", "overlap/2", "smaller/2", "shape/2"],
       "facts"      : [ ["robot",["robot"]], ["gripper",["leftgrip"]], ["gripper",["rightgrip"]], ["room",["rr"]], ["room",["lr"]], ["left",["lr","rr"]] ],
@@ -155,5 +155,6 @@
                                           ["shape(X,robotshape)",         ["robot(X)"]],
                                           ["shape(X,rectangle)",         ["room(X)"]] ]
                      } },
-      "gripper_action_split" : { "defer-to" : "gripper" },
-      "gripper_action_split_full" : { "defer-to" : "gripper" }}
+  "gripper_action_split" : { "defer-to" : "gripper" },
+  "gripper_action_split_full" : { "defer-to" : "gripper" }
+}
