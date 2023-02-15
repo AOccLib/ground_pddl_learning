@@ -312,6 +312,7 @@ class ERConcept(Concept):
         concept = self.concept.denotation(state)
         return set([ x for (x, y) in role if y in concept ])
 
+# Cardinality restriction
 class CardinalityConcept(Concept):
     def __init__(self, role: Role, n: int):
         assert type(role) != FalsumRole

@@ -312,6 +312,22 @@ class ERConcept(Concept):
         concept = self.concept.denotation(state)
         return set([ x for (x, y) in role if y in concept ])
 
+# Cardinality restriction
+class CardinalityConcept(Concept):
+    def __init__(self, role: Role, n: int):
+        assert type(role) != FalsumRole
+        super().__init__()
+        self.role = role
+        self.n = n
+    def complexity(self):
+        return 1 + self.role.complexity()
+    def __str__(self):
+        return f'card{self.n}_lp_{self.role}_rp'
+    def denotation(self, state: O2DState):
+        # Card[R.n] = { x : #{ y : R(x,y) } == n }
+        role = self.role.denotation(state)
+        return set([ x for (x, y) in role if len([(a, b) for (a, b) in role if a == x ]) == self.n ])
+
 # Role restrictions (full, left and right) using concepts
 class FullRestrictionRole(Role):
     def __init__(self, role: Role, lconcept: Concept, rconcept: Concept):
