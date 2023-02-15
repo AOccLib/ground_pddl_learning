@@ -729,7 +729,11 @@ def generate_composition_squared_roles(primitive: List[Role], squared: List[Role
     return roles
 
 # Generation of predicates
-def generate_predicates(o2d_concepts_and_roles: Dict, states: List[O2DState], max_complexity: int, complexity_measure: str):
+def generate_predicates(o2d_concepts_and_roles: Dict,
+                        states: List[O2DState],
+                        max_complexity: int,
+                        complexity_measure: str,
+                        **kwargs):
     # Roles
     role_ctors = [ ('Role', 'None', InverseRole), ('Role', 'Role', CompositionRole) ]
     primitive_roles = [ FalsumRole() ]
@@ -1133,10 +1137,10 @@ if __name__ == '__main__':
 
     # argument parser
     parser = argparse.ArgumentParser(description='Incremental learning of grounded PDDL models.')
-    parser.add_argument('--debug-level', dest='debug_level', type=int, default=default_debug_level, help=f'set debug level (default={default_debug_level})')
-    parser.add_argument('--complexity-measure', dest='complexity_measure', type=str, choices=['sum', 'height'], default=default_complexity_measure, help=f"complexity measure (either sum or height, default='{default_complexity_measure}')")
+    parser.add_argument('--debug_level', type=int, default=default_debug_level, help=f'set debug level (default={default_debug_level})')
+    parser.add_argument('--complexity_measure', type=str, choices=['sum', 'height'], default=default_complexity_measure, help=f"complexity measure (either sum or height, default='{default_complexity_measure}')")
     parser.add_argument('--output_path', type=str, default=None, help=f'override default output_path')
-    parser.add_argument('--symb2spatial', dest='symb2spatial', type=str, default=default_symb2spatial, help=f"symb2spatial file (default='{default_symb2spatial}')")
+    parser.add_argument('--symb2spatial', type=str, default=default_symb2spatial, help=f"symb2spatial file (default='{default_symb2spatial}')")
     parser.add_argument('path', type=str, help="path to folder containing 'domain.pddl' and .pddl problem files (path name used as key into symb2spatial registry)")
     parser.add_argument('max_complexity', type=int, help=f'max complexity for construction of concepts and rules (0=no limit)')
     args = parser.parse_args()
@@ -1219,7 +1223,11 @@ if __name__ == '__main__':
     # generate predicates
     start_time = timer()
     logger.info(colored(f'Generate predicates...', 'red', attrs = [ 'bold' ]))
-    roles, concepts, predicates = generate_predicates(o2d_concepts_and_roles, o2d_states, args.max_complexity, args.complexity_measure)
+    predicates_kwargs = {
+        'max_complexity': args.max_complexity,
+        'complexity_measure': args.complexity_measure,
+    }
+    roles, concepts, predicates = generate_predicates(o2d_concepts_and_roles, o2d_states, **predicates_kwargs)
     elapsed_time = timer() - start_time
     logger.info(colored(f'[max-complexity={args.max_complexity}] {len(roles)} role(s), {len(concepts)} concept(s), and {len(predicates)} predicate(s) in {elapsed_time:.3f} second(s)', 'blue'))
 

@@ -745,7 +745,12 @@ def generate_role_restrictions(roles: List[Role], concepts: List[Concept], primi
     return new_roles
 
 # Generation of predicates
-def generate_predicates(o2d_concepts_and_roles: Dict, states: List[O2DState], max_complexity: int, complexity_measure: str):
+def generate_predicates(o2d_concepts_and_roles: Dict,
+                        states: List[O2DState],
+                        max_complexity: int,
+                        complexity_measure: str,
+                        role_restrictions: bool,
+                        **kwargs):
     # Roles
     role_ctors = [ ('Role', 'None', InverseRole), ('Role', 'Role', CompositionRole) ]
     primitive_roles = [ FalsumRole() ]
@@ -766,7 +771,8 @@ def generate_predicates(o2d_concepts_and_roles: Dict, states: List[O2DState], ma
     #primitive_concepts.extend(cardinality_concepts)
 
     # Restriction of roles
-    roles.extend(generate_role_restrictions(primitive_roles, concepts, primitive_concepts + cardinality_concepts, states, 2 + max_complexity))
+    if role_restrictions:
+        roles.extend(generate_role_restrictions(primitive_roles, concepts, primitive_concepts + cardinality_concepts, states, 2 + max_complexity))
 
     # Limited concept conjunctions: primitives + cardinality restrictions
     concepts.extend(generate_concepts(primitive_concepts+cardinality_concepts, [], states, 2 + max_complexity, [('Concept', 'Concept', ConjunctiveConcept)]))
@@ -1149,10 +1155,11 @@ if __name__ == '__main__':
 
     # argument parser
     parser = argparse.ArgumentParser(description='Incremental learning of grounded PDDL models.')
-    parser.add_argument('--debug-level', dest='debug_level', type=int, default=default_debug_level, help=f'set debug level (default={default_debug_level})')
-    parser.add_argument('--complexity-measure', dest='complexity_measure', type=str, choices=['sum', 'height'], default=default_complexity_measure, help=f"complexity measure (either sum or height, default='{default_complexity_measure}')")
+    parser.add_argument('--debug_level', type=int, default=default_debug_level, help=f'set debug level (default={default_debug_level})')
+    parser.add_argument('--complexity_measure', type=str, choices=['sum', 'height'], default=default_complexity_measure, help=f"complexity measure (either sum or height, default='{default_complexity_measure}')")
     parser.add_argument('--output_path', type=str, default=None, help=f'override default output_path')
-    parser.add_argument('--symb2spatial', dest='symb2spatial', type=str, default=default_symb2spatial, help=f"symb2spatial file (default='{default_symb2spatial}')")
+    parser.add_argument('--role_restrictions', action='store_true', help=f'toggle generation of role restrictions')
+    parser.add_argument('--symb2spatial', type=str, default=default_symb2spatial, help=f"symb2spatial file (default='{default_symb2spatial}')")
     parser.add_argument('path', type=str, help="path to folder containing 'domain.pddl' and .pddl problem files (path name used as key into symb2spatial registry)")
     parser.add_argument('max_complexity', type=int, help=f'max complexity for construction of concepts and rules (0=no limit)')
     args = parser.parse_args()
@@ -1163,6 +1170,7 @@ if __name__ == '__main__':
 
     # create output folder`
     output_folder = f'{domain_name}_complexity={args.max_complexity}'
+    if args.role_restrictions: output_folder += '_restrictions'
     output_path = (domain_path if args.output_path is None else Path(args.output_path)) / output_folder
     output_path_graphs = output_path / 'test'
     output_path.mkdir(parents=True, exist_ok=True)
@@ -1235,7 +1243,12 @@ if __name__ == '__main__':
     # generate predicates
     start_time = timer()
     logger.info(colored(f'Generate predicates...', 'red', attrs = [ 'bold' ]))
-    roles, concepts, predicates = generate_predicates(o2d_concepts_and_roles, o2d_states, args.max_complexity, args.complexity_measure)
+    predicates_kwargs = {
+        'max_complexity': args.max_complexity,
+        'complexity_measure': args.complexity_measure,
+        'role_restrictions': args.role_restrictions
+    }
+    roles, concepts, predicates = generate_predicates(o2d_concepts_and_roles, o2d_states, **predicates_kwargs)
     elapsed_time = timer() - start_time
     logger.info(colored(f'[max-complexity={args.max_complexity}] {len(roles)} role(s), {len(concepts)} concept(s), and {len(predicates)} predicate(s) in {elapsed_time:.3f} second(s)', 'blue'))
 
