@@ -16,6 +16,7 @@ from pyperplan.search import searchspace
 #from pyperplan.src.pyperplan.search import searchspace
 
 from collections import deque
+from random import shuffle
 
 def get_logger(name : str, log_file : Path, level = logging.INFO):
     logger = logging.getLogger(name)
@@ -301,6 +302,7 @@ class DisjunctiveConcept(Concept):
 # Existential quantification
 class ERConcept(Concept):
     def __init__(self, role : Role, concept : Concept):
+        assert type(role) != FalsumRole
         assert type(concept) != FalsumConcept
         super().__init__()
         self.role = role
@@ -495,9 +497,15 @@ def generate_roles(primitive : List[Role], states : List[O2DState], complexity_b
             logger.debug(colored(f'+++ New role {r}/{r.complexity()}', 'magenta'))
             new_roles.append(r)
             role_names.add(str(r))
-        else:
+        elif r.complexity() >= new_roles[j].complexity():
             logger.debug(f'Role {r}/{r.complexity()} subsumed by {new_roles[j]}/{new_roles[j].complexity()}')
             discarded.append(r)
+        else:
+            logger.debug(f'Role {r}/{r.complexity()} subsumes previous {new_roles[j]}/{new_roles[j].complexity()}')
+            logger.debug(colored(f'+++ Remove role {new_roles[j]}/{new_roles[j].complexity()}', 'blue'))
+            logger.debug(colored(f'+++ New role {r}/{r.complexity()}', 'blue'))
+            discarded.append(new_roles[j])
+            new_roles[j] = r
 
     iteration = 0
     while new_roles:
@@ -516,9 +524,15 @@ def generate_roles(primitive : List[Role], states : List[O2DState], complexity_b
                         logger.debug(colored(f'+++ New role {r}/{r.complexity()}', 'magenta'))
                         fresh_roles.append(r)
                         role_names.add(str(r))
+                    elif r.complexity() >= ext_roles[i][j].complexity():
+                        logger.debug(f'Role {r}/{r.complexity()} subsumed by {ext_roles[i][j]}/{ext_roles[i][j].complexity()}')
+                        discarded.append(r)
                     else:
-                        # if pruning needed, keep lower complexity role
-                        prune_and_replace(ext_roles, i, j, r, discarded)
+                        logger.debug(f'Role {r}/{r.complexity()} subsumes previous {ext_roles[i][j]}/{ext_roles[i][j].complexity()}')
+                        logger.debug(colored(f'+++ Remove role {ext_roles[i][j]}/{ext_roles[i][j].complexity()}', 'blue'))
+                        logger.debug(colored(f'+++ New role {r}/{r.complexity()}', 'blue'))
+                        discarded.append(ext_roles[i][j])
+                        ext_roles[i][j] = r
 
         # roles that require two roles but at least one role must be in new_roles
         new_indices = set(range(len(new_roles)))
@@ -535,9 +549,15 @@ def generate_roles(primitive : List[Role], states : List[O2DState], complexity_b
                             logger.debug(colored(f'+++ New role {r}/{r.complexity()}', 'magenta'))
                             fresh_roles.append(r)
                             role_names.add(str(r))
+                        elif r.complexity() >= ext_roles[i][j].complexity():
+                            logger.debug(f'Role {r}/{r.complexity()} subsumed by {ext_roles[i][j]}/{ext_roles[i][j].complexity()}')
+                            discarded.append(r)
                         else:
-                            # if pruning needed, keep lower complexity role
-                            prune_and_replace(ext_roles, i, j, r, discarded)
+                            logger.debug(f'Role {r}/{r.complexity()} subsumes previous {ext_roles[i][j]}/{ext_roles[i][j].complexity()}')
+                            logger.debug(colored(f'+++ Remove role {ext_roles[i][j]}/{ext_roles[i][j].complexity()}', 'blue'))
+                            logger.debug(colored(f'+++ New role {r}/{r.complexity()}', 'blue'))
+                            discarded.append(ext_roles[i][j])
+                            ext_roles[i][j] = r
 
         new_roles = fresh_roles
 
@@ -590,9 +610,15 @@ def generate_concepts(primitive : List[Concept], roles : List[Role], states : Li
             logger.debug(colored(f'+++ New concept {c}/{c.complexity()}', 'green'))
             new_concepts.append(c)
             concept_names.add(str(c))
-        else:
+        elif c.complexity() >= new_concepts[j].complexity():
             logger.debug(f'Concept {c}/{c.complexity()} subsumed by {new_concepts[j]}/{new_concepts[j].complexity()}')
             discarded.append(c)
+        else:
+            logger.debug(f'Concept {c}/{c.complexity()} subsumes previous {new_concepts[j]}/{new_concepts[j].complexity()}')
+            logger.debug(colored(f'+++ Remove concept {new_concepts[j]}/{new_concepts[j].complexity()}', 'blue'))
+            logger.debug(colored(f'+++ New concept {c}/{c.complexity()}', 'blue'))
+            discarded.append(new_concepts[j])
+            new_concepts[j] = c
 
     iteration = 0
     while new_concepts:
@@ -611,9 +637,15 @@ def generate_concepts(primitive : List[Concept], roles : List[Role], states : Li
                         logger.debug(colored(f'+++ New concept {c}/{c.complexity()}', 'green'))
                         fresh_concepts.append(c)
                         concept_names.add(str(c))
+                    elif c.complexity() >= ext_concepts[i][j].complexity():
+                        logger.debug(f'Concept {c}/{c.complexity()} subsumed by {ext_concepts[i][j]}/{ext_concepts[i][j].complexity()}')
+                        discarded.append(c)
                     else:
-                        # if pruning needed, keep lower complexity concept
-                        prune_and_replace(ext_concepts, i, j, c, discarded)
+                        logger.debug(f'Concept {c}/{c.complexity()} subsumes previous {ext_concepts[i][j]}/{ext_concepts[i][j].complexity()}')
+                        logger.debug(colored(f'+++ Remove concept {ext_concepts[i][j]}/{ext_concepts[i][j].complexity()}', 'blue'))
+                        logger.debug(colored(f'+++ New concept {c}/{c.complexity()}', 'blue'))
+                        discarded.append(ext_concepts[i][j])
+                        ext_concepts[i][j] = c
 
         # concepts that require two concepts but at least one concept must be in new_concepts
         new_indices = set(range(len(new_concepts)))
@@ -631,9 +663,15 @@ def generate_concepts(primitive : List[Concept], roles : List[Role], states : Li
                             logger.debug(colored(f'+++ New concept {c}/{c.complexity()}', 'green'))
                             fresh_concepts.append(c)
                             concept_names.add(str(c))
+                        elif c.complexity() >= ext_concepts[i][j].complexity():
+                            logger.debug(f'Concept {c}/{c.complexity()} subsumed by {ext_concepts[i][j]}/{ext_concepts[i][j].complexity()}')
+                            discarded.append(c)
                         else:
-                            # if pruning needed, keep lower complexity concept
-                            prune_and_replace(ext_concepts, i, j, c, discarded)
+                            logger.debug(f'Concept {c}/{c.complexity()} subsumes previous {ext_concepts[i][j]}/{ext_concepts[i][j].complexity()}')
+                            logger.debug(colored(f'+++ Remove concept {ext_concepts[i][j]}/{ext_concepts[i][j].complexity()}', 'blue'))
+                            logger.debug(colored(f'+++ New concept {c}/{c.complexity()}', 'blue'))
+                            discarded.append(ext_concepts[i][j])
+                            ext_concepts[i][j] = c
 
         new_concepts = fresh_concepts
 
@@ -657,7 +695,7 @@ def generate_squared_roles(concepts : List[Concept], states : List[O2DState], ex
             role_names.add(str(r))
         else:
             # if pruning needed, keep lower complexity role
-            prune_and_replace([ roles, ext_roles ], i, j, r, discarded)
+            prune_and_replace([roles, ext_roles], i, j, r, discarded)
 
     logger.info(colored(f'*** Roles: #roles={len(roles)}, #subsumed={len(discarded)}', 'magenta'))
     return roles
@@ -1082,9 +1120,9 @@ if __name__ == '__main__':
 
     # argument parser
     parser = argparse.ArgumentParser(description='Incremental learning of grounded PDDL models.')
-    parser.add_argument('--debug-level', dest='debug_level', type=int, default=default_debug_level, help=f"set debug level (default={default_debug_level})")
+    parser.add_argument('--debug-level', dest='debug_level', type=int, default=default_debug_level, help=f'set debug level (default={default_debug_level})')
     parser.add_argument('--complexity-measure', dest='complexity_measure', type=str, choices=['sum', 'height'], default=default_complexity_measure, help=f"complexity measure (either sum or height, default='{default_complexity_measure}')")
-    parser.add_argument('--max-complexity', dest='max_complexity', type=int, default=default_max_complexity, help=f"max complexity for construction of concepts and rules (0=no limit, default={default_max_complexity})")
+    parser.add_argument('--max-complexity', dest='max_complexity', type=int, default=default_max_complexity, help=f'max complexity for construction of concepts and rules (0=no limit, default={default_max_complexity})')
     parser.add_argument('--symb2spatial', dest='symb2spatial', type=str, default=default_symb2spatial, help=f"symb2spatial file (default='{default_symb2spatial}')")
     parser.add_argument('path', type=str, help="path to folder containing 'domain.pddl' and .pddl problem files (path name used as key into symb2spatial registry)")
     args = parser.parse_args()
@@ -1189,3 +1227,4 @@ if __name__ == '__main__':
 
     elapsed_time = timer() - entry_time
     logger.info(colored(f'All tasks completed in {elapsed_time:.3f} second(s)', 'blue'))
+

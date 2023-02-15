@@ -12,8 +12,11 @@ from sys import path as sys_path
 sys_path.append('../../pyperplan')
 from pyperplan.planner import _parse, _ground
 from pyperplan.search import searchspace
-from random import shuffle
+#from pyperplan.src.pyperplan.planner import _parse, _ground
+#from pyperplan.src.pyperplan.search import searchspace
+
 from collections import deque
+from random import shuffle
 
 def get_logger(name : str, log_file : Path, level = logging.INFO):
     logger = logging.getLogger(name)
@@ -301,7 +304,6 @@ class ERConcept(Concept):
         role = self.role.denotation(state)
         concept = self.concept.denotation(state)
         return set([ x for (x,y) in role if y in concept ])
-
 
 class CardinalityConcept(Concept):
     def __init__(self, role : Role, card: int):
@@ -737,7 +739,7 @@ def generate_role_restrictions(roles : List[Role], concepts : List[Concept], pri
 # Generation of predicates
 def generate_predicates(o2d_concepts_and_roles : dict, states : List[O2DState], max_complexity : int, complexity_measure : str):
     # Roles
-    role_ctors = [ ('Role', 'None', InverseRole), ('Role', 'Role', CompositionRole)]
+    role_ctors = [ ('Role', 'None', InverseRole), ('Role', 'Role', CompositionRole) ]
     primitive_roles = [ FalsumRole() ]
     primitive_roles.extend([ O2DRole(name) for name in o2d_concepts_and_roles['roles'] ])
     roles = generate_roles(primitive_roles, states, max_complexity, role_ctors)
@@ -745,8 +747,8 @@ def generate_predicates(o2d_concepts_and_roles : dict, states : List[O2DState], 
         logger.debug(f'Role r{i}.{r}/{r.complexity()}')
 
     # Concepts
-    concept_ctors = [ ('Concept', 'None', NegatedConcept), ('Concept', 'Concept', ConjunctiveConcept), ('Role', 'Concept', ERConcept)]
-    primitive_concepts = [ FalsumConcept(), VerumConcept()]
+    concept_ctors = [ ('Concept', 'None', NegatedConcept), ('Concept', 'Concept', ConjunctiveConcept), ('Role', 'Concept', ERConcept) ]
+    primitive_concepts = [ FalsumConcept(), VerumConcept() ]
     primitive_concepts.extend([ O2DConcept(name) for name in o2d_concepts_and_roles['concepts'] ])
     concepts = generate_concepts(primitive_concepts, roles, states, max_complexity, concept_ctors)
     for i, c in enumerate(concepts):
@@ -760,7 +762,6 @@ def generate_predicates(o2d_concepts_and_roles : dict, states : List[O2DState], 
 
     # Limited concept conjunctions: primitives + cardinality restrictions
     concepts.extend(generate_concepts(primitive_concepts+cardinality_concepts, [], states, 2 + max_complexity, [('Concept', 'Concept', ConjunctiveConcept)]))
-
 
     # Predicates:
     # - nullary predicates: (C \subseteq C') for concepts C and C'
@@ -1015,6 +1016,7 @@ def get_planning_transitions(problems, tasks, k=1):
         assert len(transitions) == 1 + i
         initial_state = tasks[i].initial_state
         logger.debug(f'{problems[i].name}: initial-state={initial_state}')
+
         queue = deque()
         queue.append(searchspace.make_root_node(initial_state))
         # num_edges_for_state is a dictionary
@@ -1186,9 +1188,9 @@ if __name__ == '__main__':
 
     # argument parser
     parser = argparse.ArgumentParser(description='Incremental learning of grounded PDDL models.')
-    parser.add_argument('--debug-level', dest='debug_level', type=int, default=default_debug_level, help=f"set debug level (default={default_debug_level})")
+    parser.add_argument('--debug-level', dest='debug_level', type=int, default=default_debug_level, help=f'set debug level (default={default_debug_level})')
     parser.add_argument('--complexity-measure', dest='complexity_measure', type=str, choices=['sum', 'height'], default=default_complexity_measure, help=f"complexity measure (either sum or height, default='{default_complexity_measure}')")
-    parser.add_argument('--max-complexity', dest='max_complexity', type=int, default=default_max_complexity, help=f"max complexity for construction of concepts and rules (0=no limit, default={default_max_complexity})")
+    parser.add_argument('--max-complexity', dest='max_complexity', type=int, default=default_max_complexity, help=f'max complexity for construction of concepts and rules (0=no limit, default={default_max_complexity})')
     parser.add_argument('--symb2spatial', dest='symb2spatial', type=str, default=default_symb2spatial, help=f"symb2spatial file (default='{default_symb2spatial}')")
     parser.add_argument('path', type=str, help="path to folder containing 'domain.pddl' and .pddl problem files (path name used as key into symb2spatial registry)")
     parser.add_argument('--num-edges', dest='num_edges', type=int, default=default_num_edges, help=f"max number of o2d edges to sample for each hidden edge")
