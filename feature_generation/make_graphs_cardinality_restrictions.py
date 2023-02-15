@@ -1122,6 +1122,9 @@ def get_o2d_concepts_and_roles(symb2spatial : dict) -> dict:
 
 
 if __name__ == '__main__':
+    # set cmdline
+    cmdline = ' '.join(argv)
+
     # setup timer and exec name
     entry_time = timer()
     exec_path = Path(argv[0]).parent
@@ -1154,6 +1157,7 @@ if __name__ == '__main__':
     log_file = output_path / 'log.txt'
     log_level = logging.INFO if args.debug_level == 0 else logging.DEBUG
     logger = get_logger(exec_name, log_file, log_level)
+    logger.info(f'Call: {cmdline}')
 
     # load symb2spatial
     symb2spatial_filename = Path(args.symb2spatial)
