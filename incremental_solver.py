@@ -317,6 +317,7 @@ def solve(solver: Path,
                         else:
                             logger.warning(colored(f'Looping on partial.lp with nodes {unverified_nodes} from {fname.name}; already_added={data["already_added"]}', 'magenta', attrs=['bold']))
                             logger.warning(colored(f'continuing with next file in testing sequence', 'magenta', attrs=['bold']))
+                            solution_found = False
                             continue
 
                     # copy fname to solve path, and fill in partial.lp
