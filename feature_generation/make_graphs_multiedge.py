@@ -1218,7 +1218,8 @@ if __name__ == '__main__':
     domain_name = domain_path.name
 
     # create output folder`
-    output_path = domain_path / f'complexity{args.max_complexity}_num-edges{args.num_edges}' if args.output_path is None else Path(args.output_path)
+    output_folder = f'{domain_name}_complexity={args.max_complexity}_nedges={args.num_edges}'
+    output_path = (domain_path if args.output_path is None else Path(args.output_path)) / output_folder
     output_path.mkdir(parents=True, exist_ok=True)
 
     # setup logger
