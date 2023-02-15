@@ -1,7 +1,7 @@
 from sys import stdin, stdout, argv
 from timeit import default_timer as timer
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 from itertools import chain, product
 from termcolor import colored
 import signal, argparse, re
@@ -18,7 +18,14 @@ from pyperplan.search import searchspace
 from collections import deque
 from random import shuffle
 
-def get_logger(name : str, log_file : Path, level = logging.INFO):
+# Type hints
+State = Tuple[str]
+Action = str
+Transition = Tuple[State, Action, State]
+Transitions = Tuple[Transition]
+
+
+def get_logger(name: str, log_file: Path, level = logging.INFO):
     logger = logging.getLogger(name)
     logger.propagate = False
     logger.setLevel(level)
@@ -62,9 +69,9 @@ class Role(object):
         raise NotImplementedError('Role class is abstract')
     def __str__(self):
         raise NotImplementedError('Role class is abstract')
-    def denotation(self, state : O2DState):
+    def denotation(self, state: O2DState):
         raise NotImplementedError('Role class is abstract')
-    def set_denotations(self, states : List[O2DState]):
+    def set_denotations(self, states: List[O2DState]):
         if self.denotations == None:
             self.denotations = [ self.denotation(state) for state in states ]
     def clear_denotations(self):
@@ -77,19 +84,19 @@ class FalsumRole(Role):
         return 0
     def __str__(self):
         return 'falsum_role'
-    def denotation(self, state : O2DState):
+    def denotation(self, state: O2DState):
         return set()
 
 # Primitive roles are O2D roles
 class O2DRole(Role):
-    def __init__(self, role : str):
+    def __init__(self, role: str):
         super().__init__()
         self.role = role
     def complexity(self):
         return 1
     def __str__(self):
         return f'{self.role}'
-    def denotation(self, state : O2DState):
+    def denotation(self, state: O2DState):
         try:
             denotations = state.denotations[self.role]
         except KeyError:
@@ -98,7 +105,7 @@ class O2DRole(Role):
         return denotations
 
 class InverseRole(Role):
-    def __init__(self, role : str):
+    def __init__(self, role: str):
         assert type(role) != InverseRole
         super().__init__()
         self.role = role
@@ -106,12 +113,12 @@ class InverseRole(Role):
         return 1 + self.role.complexity()
     def __str__(self):
         return f'inv_lp_{self.role}_rp'
-    def denotation(self, state : O2DState):
+    def denotation(self, state: O2DState):
         denotation = self.role.denotation(state)
         return set([ (b, a) for (a, b) in denotation ])
 
 class TransitiveClosureRole(Role):
-    def __init__(self, role : Role):
+    def __init__(self, role: Role):
         assert type(role) != TransitiveClosureRole
         super().__init__()
         self.role = role
@@ -119,12 +126,12 @@ class TransitiveClosureRole(Role):
         return 1 + self.role.complexity()
     def __str__(self):
         return f'tc_lp_{self.role}_rp'
-    def denotation(self, state : O2DState):
+    def denotation(self, state: O2DState):
         role = self.role.denotation(state)
         raise NotImplementedError('TransitiveClosureRole::denotation()')
 
 class CompositionRole(Role):
-    def __init__(self, role1 : Role, role2 : Role):
+    def __init__(self, role1: Role, role2: Role):
         super().__init__()
         self.role1 = role1
         self.role2 = role2
@@ -132,14 +139,14 @@ class CompositionRole(Role):
         return 1 + self.role1.complexity() + self.role2.complexity()
     def __str__(self):
         return f'{self.role1}_COMP_{self.role2}'
-    def denotation(self, state : O2DState):
+    def denotation(self, state: O2DState):
         role1 = self.role1.denotation(state)
         role2 = self.role2.denotation(state)
         med = [ obj for (_, obj) in role1 ]
         return set([ (x1,y2) for m in med for (x1,x2) in role1 for (y1,y2) in role2 if x2 == m and y1 == m and x1 != y2 ]) # CHECK: avoid repeated args?
 
 class ConjunctiveRole(Role):
-    def __init__(self, role1 : Role, role2 : Role):
+    def __init__(self, role1: Role, role2: Role):
         assert type(role1) != FalsumRole
         assert type(role2) != FalsumRole
         assert str(role1) != str(role2)
@@ -149,12 +156,12 @@ class ConjunctiveRole(Role):
         return 1 + sum([ c.complexity() for c in self.role_set ])
     def __str__(self):
         return f'inter_lp_{"_sep_".join(sorted([ str(c) for c in self.role_set ]))}_rp'
-    def denotation(self, state : O2DState):
+    def denotation(self, state: O2DState):
         denotations = [ c.denotation(state) for c in self.role_set ]
         return set.intersection(*denotations)
 
 class DisjunctiveRole(Role):
-    def __init__(self, role1 : Role, role2 : Role):
+    def __init__(self, role1: Role, role2: Role):
         assert type(role1) != FalsumRole
         assert type(role2) != FalsumRole
         assert str(role1) != str(role2)
@@ -164,7 +171,7 @@ class DisjunctiveRole(Role):
         return 1 + sum([ c.complexity() for c in self.role_set ])
     def __str__(self):
         return f'union_lp_{"_".join([ str(c) for c in self.role_set ])}_rp'
-    def denotation(self, state : O2DState):
+    def denotation(self, state: O2DState):
         denotations = [ c.denotation(state) for c in self.role_set ]
         return set.union(*denotations)
 
@@ -176,23 +183,23 @@ class Concept(object):
         raise NotImplementedError('Concept class is abstract')
     def __str__(self):
         raise NotImplementedError('Concept class is abstract')
-    def denotation(self, state : O2DState):
+    def denotation(self, state: O2DState):
         raise NotImplementedError('Concept class is abstract')
-    def set_denotations(self, states : List[O2DState]):
+    def set_denotations(self, states: List[O2DState]):
         if self.denotations == None:
             self.denotations = [ self.denotation(state) for state in states ]
     def clear_denotations(self):
         self.denotations = None
 
 class SquaredRole(Role):
-    def __init__(self, concept : Concept):
+    def __init__(self, concept: Concept):
         super().__init__()
         self.concept = concept
     def complexity(self):
         return 1 + self.concept.complexity()
     def __str__(self):
         return f'squared_lp_{self.concept}_rp'
-    def denotation(self, state : O2DState):
+    def denotation(self, state: O2DState):
         concept = self.concept.denotation(state)
         return set([ (x,x) for x in concept])
 
@@ -203,7 +210,7 @@ class FalsumConcept(Concept):
         return 0
     def __str__(self):
         return 'falsum'
-    def denotation(self, state : O2DState):
+    def denotation(self, state: O2DState):
         return set()
 
 class VerumConcept(Concept):
@@ -213,19 +220,19 @@ class VerumConcept(Concept):
         return 0
     def __str__(self):
         return 'verum'
-    def denotation(self, state : O2DState):
+    def denotation(self, state: O2DState):
         return state.objects
 
 # Primitive concepts are O2D concepts
 class O2DConcept(Concept):
-    def __init__(self, concept : str):
+    def __init__(self, concept: str):
         super().__init__()
         self.concept = concept
     def complexity(self):
         return 1
     def __str__(self):
         return str(self.concept)
-    def denotation(self, state : O2DState):
+    def denotation(self, state: O2DState):
         try:
             state_denotation = state.denotations[self.concept]
             if state_denotation and len(next(iter(state_denotation))) != 1:
@@ -236,7 +243,7 @@ class O2DConcept(Concept):
         return set([ obj for (obj,) in state_denotation ])
 
 class NegatedConcept(Concept):
-    def __init__(self, concept : Concept):
+    def __init__(self, concept: Concept):
         assert type(concept) not in [ FalsumConcept, VerumConcept ]
         assert type(concept) != NegatedConcept
         super().__init__()
@@ -245,12 +252,12 @@ class NegatedConcept(Concept):
         return 1 + self.concept.complexity()
     def __str__(self):
         return f'not_lp_{self.concept}_rp'
-    def denotation(self, state : O2DState):
+    def denotation(self, state: O2DState):
         subset = self.concept.denotation(state)
         return set([ obj for obj in state.objects if obj not in subset ])
 
 class ConjunctiveConcept(Concept):
-    def __init__(self, concept1 : Concept, concept2 : Concept):
+    def __init__(self, concept1: Concept, concept2: Concept):
         assert type(concept1) not in [ FalsumConcept, VerumConcept ]
         assert type(concept2) not in [ FalsumConcept, VerumConcept ]
         assert str(concept1) != str(concept2)
@@ -270,12 +277,12 @@ class ConjunctiveConcept(Concept):
         return 1 + sum([ c.complexity() for c in self.concept_set ])
     def __str__(self):
         return f'inter_lp_{"_sep_".join(sorted([ str(c) for c in self.concept_set ]))}_rp'
-    def denotation(self, state : O2DState):
+    def denotation(self, state: O2DState):
         denotations = [ c.denotation(state) for c in self.concept_set ]
         return set.intersection(*denotations)
 
 class DisjunctiveConcept(Concept):
-    def __init__(self, concept1 : Concept, concept2 : Concept):
+    def __init__(self, concept1: Concept, concept2: Concept):
         assert type(concept1) not in [ FalsumConcept, VerumConcept ]
         assert type(concept2) not in [ FalsumConcept, VerumConcept ]
         assert str(concept1) != str(concept2)
@@ -295,13 +302,13 @@ class DisjunctiveConcept(Concept):
         return 1 + sum([ c.complexity() for c in self.concept_set ])
     def __str__(self):
         return f'union_lp_{"_".join([ str(c) for c in self.concept_set ])}_rp'
-    def denotation(self, state : O2DState):
+    def denotation(self, state: O2DState):
         denotations = [ c.denotation(state) for c in self.concept_set ]
         return set.union(*denotations)
 
 # Existential quantification
 class ERConcept(Concept):
-    def __init__(self, role : Role, concept : Concept):
+    def __init__(self, role: Role, concept: Concept):
         assert type(role) != FalsumRole
         assert type(concept) != FalsumConcept
         super().__init__()
@@ -311,7 +318,7 @@ class ERConcept(Concept):
         return 1 + self.role.complexity() + self.concept.complexity()
     def __str__(self):
         return f'er_lp_{self.role}_sep_{self.concept}_rp'
-    def denotation(self, state : O2DState):
+    def denotation(self, state: O2DState):
         # E[R.C] = { x : there is y such that R(x,y) and C(y) }
         role = self.role.denotation(state)
         concept = self.concept.denotation(state)
@@ -329,9 +336,9 @@ class Predicate(object):
         raise NotImplementedError('Predicate class is abstract')
     def __str__(self):
         raise NotImplementedError('Predicate class is abstract')
-    def denotation(self, state : O2DState):
+    def denotation(self, state: O2DState):
         raise NotImplementedError('Predicate class is abstract')
-    def set_denotations(self, states : List[O2DState]):
+    def set_denotations(self, states: List[O2DState]):
         if self.denotations == None:
             self.denotations = [ self.denotation(state) for state in states ]
     def clear_denotations(self):
@@ -348,7 +355,7 @@ class Predicate(object):
         return self.is_constant_on_slice(0, len(self.denotations))
 
 class NullaryPredicate(Predicate):
-    def __init__(self, concept1 : Concept, concept2 : Concept):
+    def __init__(self, concept1: Concept, concept2: Concept):
         super().__init__(0)
         self.concept1 = concept1
         self.concept2 = concept2
@@ -356,12 +363,12 @@ class NullaryPredicate(Predicate):
         return 1 + self.concept1.complexity() + self.concept2.complexity()
     def __str__(self):
         return f'{self.concept1}_SUBSET_{self.concept2}'
-    def denotation(self, state : O2DState):
+    def denotation(self, state: O2DState):
         assert False
         d1 = self.concept1.denotation(state)
         d2 = self.concept2.denotation(state)
         return d1.issubset(d2)
-    def set_denotations(self, states : List[O2DState]):
+    def set_denotations(self, states: List[O2DState]):
         if self.denotations == None:
             self.concept1.set_denotations(states)
             self.concept2.set_denotations(states)
@@ -374,17 +381,17 @@ class NullaryPredicate(Predicate):
         self.denotations = None
 
 class UnaryPredicate(Predicate):
-    def __init__(self, concept : Concept):
+    def __init__(self, concept: Concept):
         super().__init__(1)
         self.concept = concept
     def complexity(self):
         return self.concept.complexity()
     def __str__(self):
         return str(self.concept)
-    def denotation(self, state : O2DState):
+    def denotation(self, state: O2DState):
         assert False
         return self.concept.denotation(state)
-    def set_denotations(self, states : List[O2DState]):
+    def set_denotations(self, states: List[O2DState]):
         if self.denotations == None:
             self.concept.set_denotations(states)
             self.denotations = list(map(lambda x: set([ (obj,) for obj in x ]), self.concept.denotations))
@@ -392,17 +399,17 @@ class UnaryPredicate(Predicate):
         self.denotations = None
 
 class BinaryPredicate(Predicate):
-    def __init__(self, role : Role):
+    def __init__(self, role: Role):
         super().__init__(2)
         self.role = role
     def complexity(self):
         return self.role.complexity()
     def __str__(self):
         return str(self.role)
-    def denotation(self, state : O2DState):
+    def denotation(self, state: O2DState):
         assert False
         return self.role.denotation(state)
-    def set_denotations(self, states : List[O2DState]):
+    def set_denotations(self, states: List[O2DState]):
         if self.denotations == None:
             self.role.set_denotations(states)
             self.denotations = self.role.denotations
@@ -411,7 +418,7 @@ class BinaryPredicate(Predicate):
 
 
 # Generation of roles
-def roles_unary(role : Role, ctors):
+def roles_unary(role: Role, ctors):
     new_roles = []
     for ctor in ctors:
         if ctor[0] == 'Role' and ctor[1] == 'None':
@@ -421,7 +428,7 @@ def roles_unary(role : Role, ctors):
                 pass
     return new_roles
 
-def roles_for_pair(pair, roles : List[Role], ctors):
+def roles_for_pair(pair, roles: List[Role], ctors):
     new_roles = []
     for ctor in ctors:
         if ctor[0] == 'Role' and ctor[1] == 'Role':
@@ -483,7 +490,7 @@ def prune_and_replace(ext,i,j,new,discarded):
         discarded.append(existing)
 
 
-def generate_roles(primitive : List[Role], states : List[O2DState], complexity_bound : int, ctors):
+def generate_roles(primitive: List[Role], states: List[O2DState], complexity_bound: int, ctors):
     roles = []
     discarded = []
     role_names = set()
@@ -576,7 +583,7 @@ def concepts_with_roles(ctors, concept, roles):
                     pass
     return new_concepts
 
-def concepts_unary(concept : Concept, ctors):
+def concepts_unary(concept: Concept, ctors):
     new_concepts = []
     for ctor in ctors:
         if ctor[0] == 'Concept' and ctor[1] == 'None':
@@ -586,7 +593,7 @@ def concepts_unary(concept : Concept, ctors):
                 pass
     return new_concepts
 
-def concepts_for_pair(pair, concepts : List[Concept], ctors):
+def concepts_for_pair(pair, concepts: List[Concept], ctors):
     new_concepts = []
     for ctor in ctors:
         if ctor[0] == 'Concept' and ctor[1] == 'Concept':
@@ -596,7 +603,7 @@ def concepts_for_pair(pair, concepts : List[Concept], ctors):
                 pass
     return new_concepts
 
-def generate_concepts(primitive : List[Concept], roles : List[Role], states : List[O2DState], complexity_bound : int, ctors):
+def generate_concepts(primitive: List[Concept], roles: List[Role], states: List[O2DState], complexity_bound: int, ctors):
     concepts = []
     discarded = []
     concept_names = set()
@@ -678,7 +685,7 @@ def generate_concepts(primitive : List[Concept], roles : List[Role], states : Li
     logger.info(colored(f'*** Concepts: #concepts={len(concepts)}, #subsumed={len(discarded)}', 'green'))
     return concepts
 
-def generate_squared_roles(concepts : List[Concept], states : List[O2DState], ext_roles: List[Role]):
+def generate_squared_roles(concepts: List[Concept], states: List[O2DState], ext_roles: List[Role]):
     roles = []
     discarded = []
     role_names = set()
@@ -700,7 +707,7 @@ def generate_squared_roles(concepts : List[Concept], states : List[O2DState], ex
     logger.info(colored(f'*** Roles: #roles={len(roles)}, #subsumed={len(discarded)}', 'magenta'))
     return roles
 
-def generate_composition_squared_roles(primitive : List[Role], squared : List[Role], states : List[O2DState], ext_roles: List[Role]):
+def generate_composition_squared_roles(primitive: List[Role], squared: List[Role], states: List[O2DState], ext_roles: List[Role]):
     roles = []
     discarded = []
     role_names = set()
@@ -722,7 +729,7 @@ def generate_composition_squared_roles(primitive : List[Role], squared : List[Ro
     return roles
 
 # Generation of predicates
-def generate_predicates(o2d_concepts_and_roles : dict, states : List[O2DState], max_complexity : int, complexity_measure : str):
+def generate_predicates(o2d_concepts_and_roles: Dict, states: List[O2DState], max_complexity: int, complexity_measure: str):
     # Roles
     role_ctors = [ ('Role', 'None', InverseRole), ('Role', 'Role', CompositionRole) ]
     primitive_roles = [ FalsumRole() ]
@@ -792,7 +799,7 @@ def generate_predicates(o2d_concepts_and_roles : dict, states : List[O2DState], 
     return roles, concepts, predicates
 
 # Obtain O2D states from states
-def apply_rule(ext_state : dict, pred : str, arity : int, head : str, body : list):
+def apply_rule(ext_state: Dict, pred: str, arity: int, head: str, body: List):
     assert pred == head[:head.index('(')], f"Rule head doesn't match predicate '{pred}' in registry"
     body_keys = [ atom[:atom.index('(')] for atom in body ]
     body_vars = [ atom[1+atom.index('('):-1].split(',') for atom in body ]
@@ -833,7 +840,7 @@ def apply_rule(ext_state : dict, pred : str, arity : int, head : str, body : lis
                 logger.debug(colored(f'trigger: pred={pred}/{arity}, head={head}, body={body}, args={args}, assignment={assignment}, atom_args={atom_args}', 'blue'))
     return something_added
 
-def apply_rules_for_pred(ext_state : dict, pred : str, arity : int, rules : list) -> bool:
+def apply_rules_for_pred(ext_state: Dict, pred: str, arity: int, rules: List) -> bool:
     if pred not in ext_state: ext_state[pred] = set()
     something_added = False
     some_change = True
@@ -845,7 +852,7 @@ def apply_rules_for_pred(ext_state : dict, pred : str, arity : int, rules : list
                 some_change = True
     return something_added
 
-def apply_rules(ext_state : dict, rules):
+def apply_rules(ext_state: Dict, rules):
     something_added = True
     while something_added:
         something_added = False
@@ -866,7 +873,7 @@ def get_dict_from_state(state):
         ext_state[pred].add(tuple(args))
     return ext_state
 
-def construct_map_function(symb2spatial : dict, objects):
+def construct_map_function(symb2spatial: Dict, objects):
     # construct dict for objects
     object_dict = dict(object=set())
     for obj in objects:
@@ -899,14 +906,14 @@ def construct_map_function(symb2spatial : dict, objects):
         return ext_state
     return map_func
 
-def get_o2d_state_from_ext_state(i : int, ext_state : dict, primitive_concepts_and_roles : List[str]) -> O2DState:
+def get_o2d_state_from_ext_state(i: int, ext_state: Dict, primitive_concepts_and_roles: List[str]) -> O2DState:
     objects = set([ obj[0] for obj in ext_state['object'] ])
     denotations = dict()
     for name in primitive_concepts_and_roles:
         denotations[name] = ext_state[name] if name in ext_state else set()
     return O2DState(i, objects, denotations)
 
-def get_o2d_states(problems, transitions : List[list], symb2spatial : dict, o2d_concepts_and_roles : dict):
+def get_o2d_states(problems, transitions: List[Transitions], symb2spatial: Dict, o2d_concepts_and_roles: Dict):
     assert len(problems) == len(transitions)
     primitive_concepts_and_roles = o2d_concepts_and_roles['concepts'] + o2d_concepts_and_roles['roles']
     states = []
@@ -935,7 +942,7 @@ def get_o2d_states(problems, transitions : List[list], symb2spatial : dict, o2d_
     return states, states_dict, o2d_states, offsets
 
 # Planner for calculating reachable states
-def get_PDDL_files(path : Path):
+def get_PDDL_files(path: Path):
     files = sorted([ fname for fname in path.iterdir() if fname.is_file() and fname.name.endswith('.pddl') ])
     domain_filenames = [ fname for fname in files if fname.name == 'domain.pddl' ]
     problem_filenames = [ fname for fname in files if fname.name != 'domain.pddl' ]
@@ -949,12 +956,11 @@ def get_planning_tasks(domain_filename, problem_filenames):
     tasks = [ _ground(problem, remove_statics_from_initial_state, remove_irrelevant_operators) for problem in problems ]
     return problems, tasks
 
-def get_planning_transitions(problems, tasks):
+def get_planning_transitions(problems, tasks) -> List[Transitions]:
     transitions = []
     for i in range(len(tasks)):
         start_time = timer()
-        transitions.append([])
-        assert len(transitions) == 1 + i
+        transitions_in_problem = set()
         initial_state = tasks[i].initial_state
         logger.debug(f'{problems[i].name}: initial-state={initial_state}')
 
@@ -962,24 +968,27 @@ def get_planning_transitions(problems, tasks):
         queue.append(searchspace.make_root_node(initial_state))
         while queue:
             node = queue.popleft()
+            src = tuple(sorted(node.state))
             #logger.debug(f'{problems[i].name}: node dequeued: state={node.state}')
             for operator, successor_state in tasks[i].get_successor_states(node.state):
-                transition = (node.state, operator.name, successor_state)
+                dst = tuple(sorted(successor_state))
+                transition = (src, operator.name, dst)
 
                 # duplicate detection
-                if transition not in transitions[i]:
+                if transition not in transitions_in_problem:
                     queue.append(searchspace.make_child_node(node, operator, successor_state))
-                    transitions[i].append(transition)
+                    transitions_in_problem.add(transition)
                     #logger.debug(f'{problems[i].name}: state={node.state}, operator={operator.name}, successor={successor_state}')
+        transitions.append(tuple(sorted(transitions_in_problem)))
 
         elapsed_time = timer() - start_time
-        logger.info(f'{problems[i].name}: {len(transitions[i])} edge(s) in {elapsed_time:.3f} second(s)')
+        logger.info(f'{problems[i].name}: {len(transitions_in_problem)} edge(s) in {elapsed_time:.3f} second(s)')
 
     return transitions
 
 # Write graph files (.lp)
-def write_graph_file(predicates : list, slice_desc : tuple, instance : int, states : list, states_dict : dict,
-                     transitions : list, o2d_states : List[O2DState], graph_filename : Path, symb2spatial : dict):
+def write_graph_file(predicates: List, slice_desc: Tuple, instance: int, states: List, states_dict: Dict,
+                     transitions: Transitions, o2d_states: List[O2DState], graph_filename: Path, symb2spatial: Dict):
     start_time = timer()
     written_lines = 0
     with graph_filename.open('w') as fd:
@@ -1018,22 +1027,23 @@ def write_graph_file(predicates : list, slice_desc : tuple, instance : int, stat
                 written_lines += 1
 
         # features (predicates)
+        sorted_predicates = sorted(predicates, key=lambda x: str(x))
         fd.write('% Features (predicates)\n')
         written_lines += 1
         static_predicates = set()
-        for p in predicates:
+        for p in sorted_predicates:
             fd.write(f'feature({p}).\n')
             logger.debug(f'feature({p}).')
             written_lines += 1
-        for p in predicates:
+        for p in sorted_predicates:
             fd.write(f'f_arity({p},{p.arity}).\n')
             logger.debug(f'f_arity({p},{p.arity}).')
             written_lines += 1
-        for p in predicates:
+        for p in sorted_predicates:
             fd.write(f'f_complexity({p},{p.complexity()}).\n')
             logger.debug(f'f_complexity({p},{p.complexity()}).')
             written_lines += 1
-        for p in predicates:
+        for p in sorted_predicates:
             if p.is_constant_on_slice(slice_desc[0], slice_desc[1]):
                 static_predicates.add(str(p))
                 fd.write(f'f_static({instance},{p}).\n')
@@ -1043,7 +1053,7 @@ def write_graph_file(predicates : list, slice_desc : tuple, instance : int, stat
         # valuations for static predicates
         fd.write('% Valuations for static predicates\n')
         written_lines += 1
-        for p in predicates:
+        for p in sorted_predicates:
             if str(p) in static_predicates:
                 tuples = p.denotations[slice_desc[0]]
                 #logger.info(f'static: i={instance}, arity={p.arity}, p={p}, tuples={tuples}')
@@ -1052,7 +1062,7 @@ def write_graph_file(predicates : list, slice_desc : tuple, instance : int, stat
                     fd.write(f'fval({instance},({p},(null,)),{1 if tuples else 0}).\n')
                     written_lines += 1
                 else:
-                    for arg in tuples:
+                    for arg in sorted(tuples):
                         assert len(arg) == p.arity, f'Unexpected arity: arg={arg}, arity={p.arity}, tuples={tuples}, p={p}'
                         arg_str = f'({arg[0]},)' if len(arg) == 1 else f'({",".join(arg)})'
                         fd.write(f'fval({instance},({p},{arg_str}),1).\n')
@@ -1075,7 +1085,7 @@ def write_graph_file(predicates : list, slice_desc : tuple, instance : int, stat
                         fd.write(f'fval({instance},({p},(null,)),{index_normalized},{1 if tuples else 0}).\n')
                         written_lines += 1
                     else:
-                        for arg in tuples:
+                        for arg in sorted(tuples):
                             assert len(arg) == p.arity, f'Unexpected arity: arg={arg}, arity={p.arity}'
                             arg_str = f'({arg[0]},)' if len(arg) == 1 else f'({",".join(arg)})'
                             fd.write(f'fval({instance},({p},{arg_str}),{index_normalized},1).\n')
@@ -1084,8 +1094,8 @@ def write_graph_file(predicates : list, slice_desc : tuple, instance : int, stat
     elapsed_time = timer() - start_time
     logger.info(f'{graph_filename}: {written_lines} line(s) for instance {instance} [slice={slice_desc}] in {elapsed_time:.3f} second(s)')
 
-def write_graph_files(predicates : list, states : list, states_dict : List[dict], transitions : List[list], o2d_states : List[O2DState],
-                      offsets : List[int], output_path : Path, problem_filenames : List[Path], symb2spatial : dict):
+def write_graph_files(predicates: List, states: List, states_dict: List[dict], transitions: List[Transitions], o2d_states: List[O2DState],
+                      offsets: List[int], output_path: Path, problem_filenames: List[Path], symb2spatial: Dict):
     assert len(states) == len(o2d_states)
     assert len(transitions) == len(problem_filenames)
     for i, fname in enumerate(problem_filenames):
@@ -1095,7 +1105,7 @@ def write_graph_files(predicates : list, states : list, states_dict : List[dict]
         graph_filename = output_path / fname.with_suffix('.lp').name
         write_graph_file(predicates, (beg, end), i, slice_states, states_dict[i], transitions[i], slice_o2d_states, graph_filename, symb2spatial)
 
-def get_o2d_concepts_and_roles(symb2spatial : dict) -> dict:
+def get_o2d_concepts_and_roles(symb2spatial: Dict) -> Dict:
     assert 'o2d' in symb2spatial, "TEMPORAL CHECK (REMOVE AFTERWARDS): expecting 'o2d' record in registry" #CHECK
     o2d_concepts_and_roles = dict(raw=[], concepts=[], roles=[])
     o2d_concepts_and_roles['raw'] = sorted(symb2spatial['o2d'])
@@ -1194,7 +1204,7 @@ if __name__ == '__main__':
     problem_filenames = [ problem_filenames[i] for i in good_tasks ]
     problems = [ problems[i] for i in good_tasks ]
     tasks = [ tasks[i] for i in good_tasks ]
-    transitions = [ transitions[i] for i in good_tasks ]
+    transitions = tuple([ transitions[i] for i in good_tasks ])
 
     # get O2D states
     start_time = timer()
