@@ -1,12 +1,9 @@
 (define (problem strips-gripper-x-3)
    (:domain gripper)
-   (:objects lr rr ball3 ball2
-             ball1 leftgrip rightgrip)
+   (:objects lr rr ball3 ball2 ball1 leftgrip rightgrip)
    (:init (room lr)
           (room rr)
           (left lr rr)
-          (lroom lr)
-          (rroom rr)
           (neq rr lr)
           (neq lr rr)
           (ball ball3)

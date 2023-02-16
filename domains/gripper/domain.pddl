@@ -7,8 +7,6 @@
                (free ?g)
                (carry ?o ?g)
                (left ?l ?r)
-               (lroom ?l)
-               (rroom ?r)
                (neq ?l ?r))
 
   (:action move
