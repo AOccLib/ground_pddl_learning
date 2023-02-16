@@ -108,7 +108,7 @@
                      } },
   "sokoban2" : { "defer-to" : "sokoban1" },
   "gripper" :
-    { "constants"  : ["robot", "leftgrip", "rightgrip", "rr", "lr", "circleshape", "rectangle", "robotshape", "grippershape"],
+    { "constants_OVERRIDE"  : ["robot", "leftgrip", "rightgrip", "rr", "lr", "circleshape", "rectangle", "robotshape", "grippershape"],
       "o2d"        : ["robot/1", "gripper/1", "ball/1", "room/1", "left/2", "below/2", "overlap/2", "smaller/2", "shape/2"],
       "facts"      : [ ["robot", ["robot"]], ["gripper", ["leftgrip"]], ["gripper", ["rightgrip"]], ["room", ["rr"]], ["room", ["lr"]], ["left", ["lr", "rr"]] ],
       "rules"      : { "overlap/2"    : [ ["overlap(X,robot)",   ["at_robby(X)"]],
