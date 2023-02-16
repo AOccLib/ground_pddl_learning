@@ -749,6 +749,7 @@ def generate_predicates(o2d_concepts_and_roles: Dict,
                         states: List[O2DState],
                         max_complexity: int,
                         complexity_measure: str,
+                        cardinality_restrictions: bool,
                         role_restrictions: bool,
                         **kwargs):
     # Roles
@@ -767,15 +768,20 @@ def generate_predicates(o2d_concepts_and_roles: Dict,
     for i, c in enumerate(concepts):
         logger.debug(f'Concept c{i}.{c}/{c.complexity()}')
 
-    cardinality_concepts = [CardinalityConcept(role, n) for role in primitive_roles for n in [1,2] if type(role) is not FalsumRole]
-    #primitive_concepts.extend(cardinality_concepts)
+    # Cardinality restrictions: construct cardinality concepts
+    if cardinality_restrictions:
+        cardinality_concepts = [CardinalityConcept(role, n) for role in primitive_roles for n in [1, 2] if type(role) is not FalsumRole]
+        #primitive_concepts.extend(cardinality_concepts)
+    else:
+        cardinality_concepts = []
 
     # Restriction of roles
     if role_restrictions:
         roles.extend(generate_role_restrictions(primitive_roles, concepts, primitive_concepts + cardinality_concepts, states, 2 + max_complexity))
 
-    # Limited concept conjunctions: primitives + cardinality restrictions
-    concepts.extend(generate_concepts(primitive_concepts+cardinality_concepts, [], states, 2 + max_complexity, [('Concept', 'Concept', ConjunctiveConcept)]))
+    # Cardinality restrictions: extend concepts with conjunctions of primitive concepts and cardinality concepts
+    if cardinality_restrictions:
+        concepts.extend(generate_concepts(primitive_concepts+cardinality_concepts, [], states, 2 + max_complexity, [('Concept', 'Concept', ConjunctiveConcept)]))
 
     # Predicates:
     # - nullary predicates: (C \subseteq C') for concepts C and C'
@@ -1201,23 +1207,35 @@ if __name__ == '__main__':
     exec_path = Path(argv[0]).parent
     exec_name = Path(argv[0]).stem
 
-    # default values
+    # argument parser
+    parser = argparse.ArgumentParser(description='Construct features and graphs from PDDL models (multi-edge).')
+
+    # required arguments
+    required = parser.add_argument_group('required arguments')
+    required.add_argument('path', type=str, help="path to folder containing 'domain.pddl' and .pddl problem files (path name used as key into symb2spatial registry)")
+    required.add_argument('max_complexity', type=int, help=f'max complexity for construction of concepts and rules (0=no limit)')
+
+    # restrictions
+    restrictions = parser.add_argument_group('restrictions')
+    restrictions.add_argument('--cardinality_restrictions', action='store_true', help=f'toggle generation of cardinality restrictions')
+    restrictions.add_argument('--role_restrictions', action='store_true', help=f'toggle generation of role restrictions')
+
+    # number of edges
+    default_num_edges = 1
+    nedges = parser.add_argument_group('number of edges')
+    nedges.add_argument('--num-edges', dest='num_edges', type=int, default=default_num_edges, help=f"max number of o2d edges to sample for each hidden edge")
+
+    # additional options
     default_debug_level = 0
-    default_max_complexity = 4
     default_complexity_measure = 'sum'
     default_symb2spatial = exec_path / 'registry_symb2spatial.txt'
-    default_num_edges = 1
+    other = parser.add_argument_group('additional options')
+    other.add_argument('--debug_level', type=int, default=default_debug_level, help=f'set debug level (default={default_debug_level})')
+    other.add_argument('--complexity_measure', type=str, choices=['sum', 'height'], default=default_complexity_measure, help=f"complexity measure (either sum or height, default='{default_complexity_measure}')")
+    other.add_argument('--output_path', type=str, default=None, help=f'override default output_path')
+    other.add_argument('--symb2spatial', type=str, default=default_symb2spatial, help=f"symb2spatial file (default='{default_symb2spatial}')")
 
-    # argument parser
-    parser = argparse.ArgumentParser(description='Incremental learning of grounded PDDL models.')
-    parser.add_argument('--debug_level', type=int, default=default_debug_level, help=f'set debug level (default={default_debug_level})')
-    parser.add_argument('--complexity_measure', type=str, choices=['sum', 'height'], default=default_complexity_measure, help=f"complexity measure (either sum or height, default='{default_complexity_measure}')")
-    parser.add_argument('--output_path', type=str, default=None, help=f'override default output_path')
-    parser.add_argument('--role_restrictions', action='store_true', help=f'toggle generation of role restrictions')
-    parser.add_argument('--symb2spatial', type=str, default=default_symb2spatial, help=f"symb2spatial file (default='{default_symb2spatial}')")
-    parser.add_argument('path', type=str, help="path to folder containing 'domain.pddl' and .pddl problem files (path name used as key into symb2spatial registry)")
-    parser.add_argument('--num-edges', dest='num_edges', type=int, default=default_num_edges, help=f"max number of o2d edges to sample for each hidden edge")
-    parser.add_argument('max_complexity', type=int, help=f'max complexity for construction of concepts and rules (0=no limit)')
+    # parse arguments
     args = parser.parse_args()
 
     # setup domain path and name
@@ -1226,7 +1244,8 @@ if __name__ == '__main__':
 
     # create output folder`
     output_folder = f'{domain_name}_complexity={args.max_complexity}'
-    if args.role_restrictions: output_folder += '_restrictions'
+    if args.role_restrictions: output_folder += '_r_restr'
+    if args.cardinality_restrictions: output_folder += '_c_restr'
     output_folder += f'_nedges={args.num_edges}'
     output_path = (domain_path if args.output_path is None else Path(args.output_path)) / output_folder
     output_path_graphs = output_path / 'test'
@@ -1303,6 +1322,7 @@ if __name__ == '__main__':
     predicates_kwargs = {
         'max_complexity': args.max_complexity,
         'complexity_measure': args.complexity_measure,
+        'cardinality_restrictions': args.cardinality_restrictions,
         'role_restrictions': args.role_restrictions
     }
     roles, concepts, predicates = generate_predicates(o2d_concepts_and_roles, o2d_states, **predicates_kwargs)

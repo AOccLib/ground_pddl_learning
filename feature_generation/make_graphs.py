@@ -770,12 +770,14 @@ def generate_predicates(o2d_concepts_and_roles: Dict,
 
     # Cardinality restrictions: construct cardinality concepts
     if cardinality_restrictions:
-        cardinality_concepts = [CardinalityConcept(role, n) for role in primitive_roles for n in [1,2] if type(role) is not FalsumRole]
+        cardinality_concepts = [CardinalityConcept(role, n) for role in primitive_roles for n in [1, 2] if type(role) is not FalsumRole]
         #primitive_concepts.extend(cardinality_concepts)
+    else:
+        cardinality_concepts = []
 
     # Restriction of roles
     if role_restrictions:
-        roles.extend(generate_role_restrictions(primitive_roles, concepts, primitive_concepts, states, 2 + max_complexity))
+        roles.extend(generate_role_restrictions(primitive_roles, concepts, primitive_concepts + cardinality_concepts, states, 2 + max_complexity))
 
     # Cardinality restrictions: extend concepts with conjunctions of primitive concepts and cardinality concepts
     if cardinality_restrictions:
@@ -1151,22 +1153,30 @@ if __name__ == '__main__':
     exec_path = Path(argv[0]).parent
     exec_name = Path(argv[0]).stem
 
-    # default values
+    # argument parser
+    parser = argparse.ArgumentParser(description='Construct features and graphs from PDDL models.')
+
+    # required arguments
+    required = parser.add_argument_group('required arguments')
+    required.add_argument('path', type=str, help="path to folder containing 'domain.pddl' and .pddl problem files (path name used as key into symb2spatial registry)")
+    required.add_argument('max_complexity', type=int, help=f'max complexity for construction of concepts and rules (0=no limit)')
+
+    # restrictions
+    restrictions = parser.add_argument_group('restrictions')
+    restrictions.add_argument('--cardinality_restrictions', action='store_true', help=f'toggle generation of cardinality restrictions')
+    restrictions.add_argument('--role_restrictions', action='store_true', help=f'toggle generation of role restrictions')
+
+    # additional options
     default_debug_level = 0
-    default_max_complexity = 4
     default_complexity_measure = 'sum'
     default_symb2spatial = exec_path / 'registry_symb2spatial.txt'
+    other = parser.add_argument_group('additional options')
+    other.add_argument('--debug_level', type=int, default=default_debug_level, help=f'set debug level (default={default_debug_level})')
+    other.add_argument('--complexity_measure', type=str, choices=['sum', 'height'], default=default_complexity_measure, help=f"complexity measure (either sum or height, default='{default_complexity_measure}')")
+    other.add_argument('--output_path', type=str, default=None, help=f'override default output_path')
+    other.add_argument('--symb2spatial', type=str, default=default_symb2spatial, help=f"symb2spatial file (default='{default_symb2spatial}')")
 
-    # argument parser
-    parser = argparse.ArgumentParser(description='Incremental learning of grounded PDDL models.')
-    parser.add_argument('--debug_level', type=int, default=default_debug_level, help=f'set debug level (default={default_debug_level})')
-    parser.add_argument('--cardinality_restrictions', action='store_true', help=f'toggle generation of cardinality restrictions')
-    parser.add_argument('--complexity_measure', type=str, choices=['sum', 'height'], default=default_complexity_measure, help=f"complexity measure (either sum or height, default='{default_complexity_measure}')")
-    parser.add_argument('--output_path', type=str, default=None, help=f'override default output_path')
-    parser.add_argument('--role_restrictions', action='store_true', help=f'toggle generation of role restrictions')
-    parser.add_argument('--symb2spatial', type=str, default=default_symb2spatial, help=f"symb2spatial file (default='{default_symb2spatial}')")
-    parser.add_argument('path', type=str, help="path to folder containing 'domain.pddl' and .pddl problem files (path name used as key into symb2spatial registry)")
-    parser.add_argument('max_complexity', type=int, help=f'max complexity for construction of concepts and rules (0=no limit)')
+    # parse arguments
     args = parser.parse_args()
 
     # setup domain path and name

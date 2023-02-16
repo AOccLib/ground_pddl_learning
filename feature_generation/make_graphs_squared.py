@@ -1129,20 +1129,26 @@ if __name__ == '__main__':
     exec_path = Path(argv[0]).parent
     exec_name = Path(argv[0]).stem
 
-    # default values
+    # argument parser
+    parser = argparse.ArgumentParser(description='Construct features and graphs from PDDL models (squared).')
+
+    # required arguments
+    required = parser.add_argument_group('required arguments')
+    required.add_argument('path', type=str, help="path to folder containing 'domain.pddl' and .pddl problem files (path name used as key into symb2spatial registry)")
+    required.add_argument('max_complexity', type=int, help=f'max complexity for construction of concepts and rules (0=no limit)')
+
+
+    # additional options
     default_debug_level = 0
-    default_max_complexity = 4
     default_complexity_measure = 'sum'
     default_symb2spatial = exec_path / 'registry_symb2spatial.txt'
+    other = parser.add_argument_group('additional options')
+    other.add_argument('--debug_level', type=int, default=default_debug_level, help=f'set debug level (default={default_debug_level})')
+    other.add_argument('--complexity_measure', type=str, choices=['sum', 'height'], default=default_complexity_measure, help=f"complexity measure (either sum or height, default='{default_complexity_measure}')")
+    other.add_argument('--output_path', type=str, default=None, help=f'override default output_path')
+    other.add_argument('--symb2spatial', type=str, default=default_symb2spatial, help=f"symb2spatial file (default='{default_symb2spatial}')")
 
-    # argument parser
-    parser = argparse.ArgumentParser(description='Incremental learning of grounded PDDL models.')
-    parser.add_argument('--debug_level', type=int, default=default_debug_level, help=f'set debug level (default={default_debug_level})')
-    parser.add_argument('--complexity_measure', type=str, choices=['sum', 'height'], default=default_complexity_measure, help=f"complexity measure (either sum or height, default='{default_complexity_measure}')")
-    parser.add_argument('--output_path', type=str, default=None, help=f'override default output_path')
-    parser.add_argument('--symb2spatial', type=str, default=default_symb2spatial, help=f"symb2spatial file (default='{default_symb2spatial}')")
-    parser.add_argument('path', type=str, help="path to folder containing 'domain.pddl' and .pddl problem files (path name used as key into symb2spatial registry)")
-    parser.add_argument('max_complexity', type=int, help=f'max complexity for construction of concepts and rules (0=no limit)')
+    # parse arguments
     args = parser.parse_args()
 
     # setup domain path and name
