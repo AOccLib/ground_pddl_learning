@@ -749,6 +749,7 @@ def generate_predicates(o2d_concepts_and_roles: Dict,
                         states: List[O2DState],
                         max_complexity: int,
                         complexity_measure: str,
+                        cardinality_restrictions: bool,
                         role_restrictions: bool,
                         **kwargs):
     # Roles
@@ -767,9 +768,18 @@ def generate_predicates(o2d_concepts_and_roles: Dict,
     for i, c in enumerate(concepts):
         logger.debug(f'Concept c{i}.{c}/{c.complexity()}')
 
+    # Cardinality restrictions: construct cardinality concepts
+    if cardinality_restrictions:
+        cardinality_concepts = [CardinalityConcept(role, n) for role in primitive_roles for n in [1,2] if type(role) is not FalsumRole]
+        #primitive_concepts.extend(cardinality_concepts)
+
     # Restriction of roles
     if role_restrictions:
         roles.extend(generate_role_restrictions(primitive_roles, concepts, primitive_concepts, states, 2 + max_complexity))
+
+    # Cardinality restrictions: extend concepts with conjunctions of primitive concepts and cardinality concepts
+    if cardinality_restrictions:
+        concepts.extend(generate_concepts(primitive_concepts+cardinality_concepts, [], states, 2 + max_complexity, [('Concept', 'Concept', ConjunctiveConcept)]))
 
     # Predicates:
     # - nullary predicates: (C \subseteq C') for concepts C and C'
@@ -1150,6 +1160,7 @@ if __name__ == '__main__':
     # argument parser
     parser = argparse.ArgumentParser(description='Incremental learning of grounded PDDL models.')
     parser.add_argument('--debug_level', type=int, default=default_debug_level, help=f'set debug level (default={default_debug_level})')
+    parser.add_argument('--cardinality_restrictions', action='store_true', help=f'toggle generation of cardinality restrictions')
     parser.add_argument('--complexity_measure', type=str, choices=['sum', 'height'], default=default_complexity_measure, help=f"complexity measure (either sum or height, default='{default_complexity_measure}')")
     parser.add_argument('--output_path', type=str, default=None, help=f'override default output_path')
     parser.add_argument('--role_restrictions', action='store_true', help=f'toggle generation of role restrictions')
@@ -1164,7 +1175,8 @@ if __name__ == '__main__':
 
     # create output folder`
     output_folder = f'{domain_name}_complexity={args.max_complexity}'
-    if args.role_restrictions: output_folder += '_restrictions'
+    if args.role_restrictions: output_folder += '_r_restr'
+    if args.cardinality_restrictions: output_folder += '_c_restr'
     output_path = (domain_path if args.output_path is None else Path(args.output_path)) / output_folder
     output_path_graphs = output_path / 'test'
     output_path.mkdir(parents=True, exist_ok=True)
@@ -1240,6 +1252,7 @@ if __name__ == '__main__':
     predicates_kwargs = {
         'max_complexity': args.max_complexity,
         'complexity_measure': args.complexity_measure,
+        'cardinality_restrictions': args.cardinality_restrictions,
         'role_restrictions': args.role_restrictions
     }
     roles, concepts, predicates = generate_predicates(o2d_concepts_and_roles, o2d_states, **predicates_kwargs)
