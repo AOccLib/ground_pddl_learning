@@ -977,7 +977,7 @@ def get_PDDL_files(path: Path):
     assert len(domain_filenames) == 1
     return domain_filenames[0], problem_filenames
 
-def get_planning_tasks(domain_filename, problem_filenames):
+def get_tasks(domain_filename, problem_filenames):
     remove_statics_from_initial_state = False
     remove_irrelevant_operators = False
     problems = [ _parse(str(domain_filename), str(fname)) for fname in problem_filenames ]
@@ -1021,50 +1021,42 @@ def hidden_action(operator, domain):
         operator_final = operator.name
     return operator_final
 
-def get_planning_transitions(problems, tasks, k=1) -> List[Transitions]:
-    '''
-    :param problems: parsed pddl problems
-    :param tasks: ground tasks corresponding to the problems
-    :param k: max number of o2d edges to sample for each hidden edge
-    :return: transitions (o2d edges)
-    '''
+def get_transitions(domain_name, tasks, k=1) -> List[Transitions]:
     transitions = []
-    domain = problems[0].domain.name
-    for i in range(len(tasks)):
+    for task in tasks:
         start_time = timer()
-        transitions_in_problem = set()
-        initial_state = tasks[i].initial_state
-        logger.debug(f'{problems[i].name}: initial-state={initial_state}')
+        explored_transitions = set()
+        initial_state = task.initial_state
+        logger.debug(f'{task.name}.pddl: initial-state={initial_state}')
 
-        queue = deque()
-        queue.append(searchspace.make_root_node(initial_state))
         # num_edges_for_state is a dictionary
         # dict entries are of the form key=(s,a) : value=n
         # where: s is a hidden state, a is a ground action, n is the number of transitions recorded from s via a
         num_edges = {}
+
+        queue = deque()
+        queue.append(searchspace.make_root_node(initial_state))
         while queue:
             node = queue.popleft()
             src = tuple(sorted(node.state))
-            hidden_s = hidden_state(node.state, domain)
+            hidden_s = hidden_state(node.state, domain_name)
             # sample k successor for each hidden action (unless there are less j<k successors, then sample j)
-            successors = shuffle(tasks[i].get_successor_states(node.state))
-            for operator, successor_state in tasks[i].get_successor_states(node.state):
+            successors = shuffle(task.get_successor_states(node.state))
+            for operator, successor_state in successors:
                 dst = tuple(sorted(successor_state))
-                hidden_a = hidden_action(operator, domain)
+                hidden_a = hidden_action(operator, domain_name)
                 if (hidden_s, hidden_a) not in num_edges:
                     num_edges[(hidden_s, hidden_a)] = 0
                 if num_edges[(hidden_s, hidden_a)] < k:
                     transition = (src, operator.name, dst)
-
-                    # duplicate detection
-                    if transition not in transitions_in_problem:
+                    if transition not in explored_transitions:
                         queue.append(searchspace.make_child_node(node, operator, successor_state))
-                        transitions_in_problem.append(transition)
+                        explored_transitions.append(transition)
                         num_edges[(hidden_s, hidden_a)] += 1
-        transitions.append(tuple(sorted(transitions_in_problem)))
+        transitions.append(tuple(sorted(explored_transitions)))
 
         elapsed_time = timer() - start_time
-        logger.info(f'{problems[i].name}: {len(transitions_in_problem)} edge(s) in {elapsed_time:.3f} second(s)')
+        logger.info(f'{task.name}.pddl: {len(explored_transitions)} edge(s) in {elapsed_time:.3f} second(s)')
 
     return transitions
 
@@ -1289,13 +1281,13 @@ if __name__ == '__main__':
     logger.info(colored(f'Parse and ground PDDL files...', 'red', attrs = [ 'bold' ]))
     domain_filename, problem_filenames = get_PDDL_files(domain_path)
     logger.info(f'PDDLs: domain={domain_filename}, problems={[ str(fname) for fname in problem_filenames ]}')
-    problems, tasks = get_planning_tasks(domain_filename, problem_filenames)
+    problems, tasks = get_tasks(domain_filename, problem_filenames)
     elapsed_time = timer() - start_time
     logger.info(colored(f'{len(problems)} file(s) parsed and grounded in {elapsed_time:.3f} second(s)', 'blue'))
 
     start_time = timer()
     logger.info(colored(f'Generate transitions in PDDL files...', 'red', attrs = [ 'bold' ]))
-    transitions = get_planning_transitions(problems, tasks, args.num_edges)
+    transitions = get_transitions(problems[0].domain_name, tasks, args.num_edges)
     elapsed_time = timer() - start_time
     logger.info(colored(f'{sum(map(lambda x: len(x), transitions))} edge(s) in {elapsed_time:.3f} second(s)', 'blue'))
 
