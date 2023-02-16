@@ -384,14 +384,17 @@ def _parse_arguments():
     driver.add_argument('--results', dest='results', action='append', help=f"folder to store results (default=graphs's folder)")
     driver.add_argument('--verify-only', dest='verify_only', action='store_true', help='verify best model found over test set')
 
-    # unknown atoms
+    # randomization
     default_seed = 0
+    random = parser.add_argument_group('random number generator')
+    random.add_argument('--seed', type=int, default=default_seed, help=f'seed for random generator (default={default_seed})')
+
+    # unknown atoms
     default_noise = 0
     default_scope = 0
     unknown = parser.add_argument_group('random generation of unknown atoms (disabled by default noise of zero)')
     unknown.add_argument('--noise', type=float, default=default_noise, help=f'%% of atoms per state to mark as unknwon (default={default_noise})')
     unknown.add_argument('--scope', type=int, choices=[0, 1], default=default_scope, help=f'set scope for adding noise (0=true atoms, 1=all atoms, default={default_scope})')
-    unknown.add_argument('--seed', type=int, default=default_seed, help=f'seed for random generator (default={default_seed})')
 
     # parse arguments
     args = parser.parse_args()

@@ -256,7 +256,7 @@ def solve(solver: Path,
                     # copy fname to solve path, and fill in partial.lp
                     if not verify_only:
                         if not (solve_path / fname.name).exists():
-                            add_new_instance(inst, fname, solve_path)
+                            add_new_instance(inst, fname, solve_path, logger=logger)
                             added_files.append((inst, fname))
                         added = add_nodes_to_partial_lp_file(partial_fname, data['fnames'], unsolved_nodes, max_nodes_per_iteration, logger)
                         data['already_added'].update(added)
@@ -337,6 +337,11 @@ def _parse_arguments():
     driver.add_argument('--max-time', dest='max_time', type=int, default=default_max_time, help=f'max-time for Clingo solver (0=no limit, default={default_max_time})')
     driver.add_argument('--results', dest='results', action='append', help=f"folder to store results (default=graphs's folder)")
     driver.add_argument('--verify-only', dest='verify_only', action='store_true', help='verify best model found over test set')
+
+    # randomization
+    default_seed = 0
+    random = parser.add_argument_group('random number generator')
+    random.add_argument('--seed', type=int, default=default_seed, help=f'seed for random generator (default={default_seed})')
 
     # parse arguments
     args = parser.parse_args()
