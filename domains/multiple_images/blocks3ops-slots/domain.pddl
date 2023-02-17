@@ -1,7 +1,3 @@
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; 3 Op-blocks world
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 (define (domain blocks3ops-slots)
   (:requirements :strips :typing)
   (:types block slot height)
@@ -42,4 +38,3 @@
                  (not (at ?sx ?hx ?x)) (at ?sz ?h ?x))
   )
 )
-

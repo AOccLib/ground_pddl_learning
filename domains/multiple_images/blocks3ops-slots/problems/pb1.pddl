@@ -2,7 +2,6 @@
   (:domain blocks3ops-slots)
   (:objects a0 - block
             s0 s1 s2 s3 s4 - slot
-            h0 - height
   )
   (:init (ontable a0) (clear a0)
          (at s2 h0 a0)
