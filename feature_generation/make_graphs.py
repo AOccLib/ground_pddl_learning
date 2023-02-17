@@ -16,7 +16,7 @@ from pyperplan.search import searchspace
 #from pyperplan.src.pyperplan.search import searchspace
 
 from collections import deque
-from random import shuffle
+import random
 
 # Type hints
 State = Tuple[str]
@@ -1047,7 +1047,7 @@ def sample_transitions_in_task(transitions: Transitions, task, canonical_func: C
     shuffled_transitions = list(transitions)
     while change and ratio < target_ratio:
         change = False
-        shuffle(shuffled_transitions)
+        random.shuffle(shuffled_transitions)
         for transition in shuffled_transitions:
             c_src = canonical_func(transition[0])
             c_dst = canonical_func(transition[2])
@@ -1196,6 +1196,10 @@ def get_o2d_concepts_and_roles(symb2spatial: Dict) -> Dict:
     if not o2d_concepts_and_roles['roles']: logger.warning('Empty primitive roles')
     return o2d_concepts_and_roles
 
+def _setup_seed(seed: int):
+    random.seed(seed)
+    return seed
+
 
 if __name__ == '__main__':
     # set cmdline
@@ -1220,8 +1224,10 @@ if __name__ == '__main__':
     restrictions.add_argument('--role_restrictions', action='store_true', help=f'toggle generation of role restrictions')
 
     # sampled edges
+    default_seed = 0
     sampled = parser.add_argument_group('sampling of edges (for tasks with multiple images):')
     sampled.add_argument('--target_ratio', type=float, default=0, help=f'define target ratio for sampling edges (default 0 means no sampling)')
+    sampled.add_argument('--seed', type=int, default=default_seed, help=f'seed for random generator (default={default_seed})')
 
     # additional options
     default_debug_level = 0
@@ -1233,8 +1239,9 @@ if __name__ == '__main__':
     other.add_argument('--output_path', type=str, default=None, help=f'override default output_path')
     other.add_argument('--symb2spatial', type=str, default=default_symb2spatial, help=f"symb2spatial file (default='{default_symb2spatial}')")
 
-    # parse arguments
+    # parse arguments and setup seed
     args = parser.parse_args()
+    _setup_seed(args.seed)
 
     # setup domain path and name
     domain_path = Path(args.path)
@@ -1245,6 +1252,7 @@ if __name__ == '__main__':
     if args.role_restrictions: output_folder += '_r_restr'
     if args.cardinality_restrictions: output_folder += '_c_restr'
     if args.target_ratio > 0: output_folder += f'_esampling={args.target_ratio}'
+    if args.seed != 0: output_folder += f'_s{args.seed}'
     output_path = (domain_path if args.output_path is None else Path(args.output_path)) / output_folder
     output_path_graphs = output_path / 'test'
     output_path.mkdir(parents=True, exist_ok=True)
