@@ -999,14 +999,14 @@ def get_transitions(tasks: List) -> List[Transitions]:
         while queue:
             node = queue.popleft()
             src = tuple(sorted(node.state))
-            logger.debug(f'{task.name} (in {task.fname}): node dequeued: state={src}')
+            #logger.debug(f'{task.name} (in {task.fname}): node dequeued: state={src}')
             for operator, successor_state in task.get_successor_states(node.state):
                 dst = tuple(sorted(successor_state))
                 transition = (src, operator.name, dst)
                 if transition not in explored_transitions:
                     explored_transitions.add(transition)
                     queue.append(searchspace.make_child_node(node, operator, successor_state))
-                    logger.debug(f'{task.name} (in {task.fname}): state={src}, operator={operator.name}, successor={dst}')
+                    #logger.debug(f'{task.name} (in {task.fname}): state={src}, operator={operator.name}, successor={dst}')
         list_transitions.append(tuple(sorted(explored_transitions)))
 
         elapsed_time = timer() - start_time
