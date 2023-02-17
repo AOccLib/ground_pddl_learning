@@ -1,5 +1,6 @@
 { "blocks3ops" :
-    { "constants"  : ["rectangle", "t"],
+    { "desc"       : "Blocks with 3 operators",
+      "constants"  : ["rectangle", "t"],
       "o2d"        : ["table/1", "block/1", "below/2", "smaller/2", "shape/2"],
       "facts"      : [ ["table", ["t"]] ],
       "rules"      : { "block/1"      : [ ["block(X)",           ["ontable(X)"]],
@@ -11,7 +12,8 @@
                        "shape/2"      : [ ["shape(X,rectangle)", ["object(X)"]] ]
                      } },
   "blocks4ops" :
-    { "constants"  : ["rectangle", "r", "t"],
+    { "desc"       : "Blocks with gripper and 4 operators",
+      "constants"  : ["rectangle", "r", "t"],
       "o2d"        : ["robot/1", "table/1", "block/1", "overlap/2", "below/2", "smaller/2", "shape/2"],
       "facts"      : [ ["robot", ["r"]], ["table", ["t"]] ],
       "rules"      : { "block/1"      : [ ["block(X)",           ["ontable(X)"]],
@@ -28,7 +30,9 @@
                        "shape/2"      : [ ["shape(X,rectangle)", ["object(X)"]] ]
                      } },
   "blocks4ops-slots" :
-    { "constants"  : ["rectangle", "r", "t"],
+    { "desc"       : "Blocks4ops with multiple images per state (underlying states identified with canonical(-atoms))",
+      "canonical"  : ["on/2", "ontable/1", "holding/1"],
+      "constants"  : ["rectangle", "r", "t"],
       "o2d"        : ["robot/1", "table/1", "block/1", "overlap/2", "below/2", "smaller/2", "shape/2", "left/2"],
       "facts"      : [ ["robot", ["r"]], ["table", ["t"]] ],
       "rules"      : { "block/1"      : [ ["block(X)",           ["at(S,H,X)"]],
@@ -45,7 +49,9 @@
                        "shape/2"      : [ ["shape(X,rectangle)", ["object(X)"]] ]
                      } },
   "blocks3ops-slots" :
-    { "constants"  : ["rectangle", "t"],
+    { "desc"       : "Blocks3ops with multiple images per state (underlying states identified with canonical(-atoms))",
+      "canonical"  : ["on/2", "ontable/1"],
+      "constants"  : ["rectangle", "t"],
       "o2d"        : ["table/1", "block/1", "below/2", "smaller/2", "shape/2", "left/2"],
       "facts"      : [ ["table", ["t"]] ],
       "rules"      : { "block/1"      : [ ["block(X)",           ["at(S,H,X)"]],
@@ -58,7 +64,8 @@
                        "shape/2"      : [ ["shape(X,rectangle)", ["object(X)"]] ]
                      } },
   "hanoi1op" :
-    { "constants"  : ["rectangle"],
+    { "desc"       : "Towers of hanoi with 1 operator",
+      "constants"  : ["rectangle"],
       "o2d"        : ["smaller/2", "overlap/2", "below/2", "shape/2"],
       "rules"      : { "overlap/2"    : [ ["overlap(X,Y)",       ["disk(X)", "peg(Y)", "on(X,Y)"]],
                                           ["overlap(Y,X)",       ["overlap(X,Y)"]] ],
@@ -66,9 +73,10 @@
                                           ["below(X,Y)",         ["on(Y,X)", "peg(X)", "disk(Y)"]] ],
                        "shape/2"      : [ ["shape(X,rectangle)", ["object(X)"]] ]
                      } },
-  "hanoi4ops" : { "defer-to" : "hanoi1op" },
+  "hanoi4ops" : { "desc": "Towers of hanoi with 4 operators", "defer-to" : "hanoi1op" },
   "slidingtile" :
-    { "constants"  : ["rectangle"],
+    { "desc"       : "Sliding tile puzzle",
+      "constants"  : ["rectangle"],
       "o2d"        : ["tile/1", "left/2", "below/2", "cell/1", "overlap/2", "shape/2"],
       "rules"      : { "cell/1"       : [ ["cell(X)",            ["position(X)"]] ],
                        "overlap/2"    : [ ["overlap(X,Y)",       ["at(X,Y)"]],
@@ -76,7 +84,8 @@
                        "shape/2"      : [ ["shape(X,rectangle)", ["object(X)"]] ]
                      } },
   "grid" :
-    { "constants"  : ["r"],
+    { "desc"       : "Agent that navigates in grid and can open/close locks",
+      "constants"  : ["r"],
       "o2d"        : ["key/1", "left/2", "below/2", "robot/1", "cell/1", "lockedcell/1", "overlap/2", "smaller/2", "shape/2"],
       "facts"      : [ ["robot", ["r"]] ],
       "rules"      : { "cell/1"       : [ ["cell(X)",            ["place(X)", "open(X)"]] ],
@@ -93,7 +102,8 @@
   "grid2" : { "defer-to" : "grid" },
   "grid3" : { "defer-to" : "grid" },
   "sokoban1" :
-    { "constants"  : ["sokoban1", "rectangle", "sokoshape"],
+    { "desc"       : "Sokoban game",
+      "constants"  : ["sokoban1", "rectangle", "sokoshape"],
       "o2d"        : ["crate/1", "sokoban/1", "left/2", "below/2", "cell/1", "overlap/2", "shape/2"],
       "rules"      : { "cell/1"       : [ ["cell(X)",            ["left(X,Y)"]],
                                           ["cell(Y)",            ["left(X,Y)"]],
@@ -108,7 +118,8 @@
                      } },
   "sokoban2" : { "defer-to" : "sokoban1" },
   "gripper" :
-    { "constants_OVERRIDE"  : ["robot", "leftgrip", "rightgrip", "rr", "lr", "circleshape", "rectangle", "robotshape", "grippershape"],
+    { "desc"       : "Gripper problem with 2 rooms and 2 arms",
+      "constants_OVERRIDE"  : ["robot", "leftgrip", "rightgrip", "rr", "lr", "circleshape", "rectangle", "robotshape", "grippershape"],
       "o2d"        : ["robot/1", "gripper/1", "ball/1", "room/1", "left/2", "below/2", "overlap/2", "smaller/2", "shape/2"],
       "facts"      : [ ["robot", ["robot"]], ["gripper", ["leftgrip"]], ["gripper", ["rightgrip"]], ["room", ["rr"]], ["room", ["lr"]], ["left", ["lr", "rr"]] ],
       "rules"      : { "overlap/2"    : [ ["overlap(X,robot)",   ["at_robby(X)"]],
@@ -129,7 +140,9 @@
                                           ["shape(X,rectangle)",    ["room(X)"]] ]
                      } },
   "gripper-slots" :
-    { "constants"  : ["robot", "leftgrip", "rightgrip", "rr", "lr", "circleshape", "rectangle", "robotshape", "grippershape"],
+    { "desc"       : "Gripper with multiple images per state (underlying states identified with canonical(-atoms))",
+      "canonical"  : ["at/2", "at_robby/2", "carry/2"],
+      "constants"  : ["robot", "leftgrip", "rightgrip", "rr", "lr", "circleshape", "rectangle", "robotshape", "grippershape"],
       "o2d"        : ["robot/1", "gripper/1", "ball/1", "room/1", "left/2", "below/2", "overlap/2", "smaller/2", "shape/2"],
       "facts"      : [ ["robot", ["robot"]], ["gripper", ["leftgrip"]], ["gripper", ["rightgrip"]], ["room", ["rr"]], ["room", ["lr"]], ["left", ["lr", "rr"]] ],
       "rules"      : { "overlap/2"    : [ ["overlap(X,robot)",   ["at_robby(X)"]],
@@ -152,7 +165,5 @@
                                           ["shape(X,grippershape)", ["gripper(X)"]],
                                           ["shape(X,robotshape)",   ["robot(X)"]],
                                           ["shape(X,rectangle)",    ["room(X)"]] ]
-                     } },
-  "gripper_action_split" : { "defer-to" : "gripper" },
-  "gripper_action_split_full" : { "defer-to" : "gripper" }
+                     } }
 }
