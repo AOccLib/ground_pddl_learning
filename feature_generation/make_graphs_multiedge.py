@@ -1,7 +1,7 @@
 from sys import stdin, stdout, argv
 from timeit import default_timer as timer
 from pathlib import Path
-from typing import List, Tuple, Dict
+from typing import Callable, List, Tuple, Dict, Set
 from itertools import chain, product
 from termcolor import colored
 import signal, argparse, re
@@ -901,7 +901,7 @@ def get_dict_from_state(state):
         ext_state[pred].add(tuple(args))
     return ext_state
 
-def construct_map_function(symb2spatial: Dict, objects):
+def construct_map_function(symb2spatial: Dict, objects) -> Callable:
     # construct dict for objects
     object_dict = dict(object=set())
     for obj in objects:
@@ -941,21 +941,21 @@ def get_o2d_state_from_ext_state(i: int, ext_state: Dict, primitive_concepts_and
         denotations[name] = ext_state[name] if name in ext_state else set()
     return O2DState(i, objects, denotations)
 
-def get_o2d_states(problems, transitions: List[Transitions], symb2spatial: Dict, o2d_concepts_and_roles: Dict):
-    assert len(problems) == len(transitions)
+def get_o2d_states(problems, list_transitions: List[Transitions], symb2spatial: Dict, o2d_concepts_and_roles: Dict):
+    assert len(problems) == len(list_transitions)
     primitive_concepts_and_roles = o2d_concepts_and_roles['concepts'] + o2d_concepts_and_roles['roles']
     states = []
     o2d_states = []
     offsets = dict()
     states_dict = []
-    for i in range(len(transitions)):
+    for i in range(len(list_transitions)):
         start_time = timer()
         seen_states = set()
         states_dict.append(dict())
         offsets[i] = len(o2d_states)
         objects = problems[i].objects
         map_func = construct_map_function(symb2spatial, objects)
-        for (src, action, dst) in transitions[i]:
+        for (src, action, dst) in list_transitions[i]:
             for state in [src, dst]:
                 if state not in seen_states:
                     assert state not in states_dict[i]
@@ -982,83 +982,90 @@ def get_tasks(domain_filename, problem_filenames):
     remove_irrelevant_operators = False
     problems = [ _parse(str(domain_filename), str(fname)) for fname in problem_filenames ]
     tasks = [ _ground(problem, remove_statics_from_initial_state, remove_irrelevant_operators) for problem in problems ]
+    for task, fname in zip(tasks, problem_filenames):
+        setattr(task, 'fname', fname.name)
     return problems, tasks
 
-def hidden_state(s, domain):
-    if domain in ["blocks4ops-slots", "blocks3ops-slots"]:
-        hidden_state = frozenset([p for p in s if "holding" in p or "on" in p])
-    elif domain == "gripper-slots":
-        hidden_state = frozenset([p for p in s if "slot" not in p and ("at" in p or "free" in p or "carry" in p)])
-    else:
-        hidden_state = s
-    return hidden_state
-
-def hidden_action(operator, domain):
-    if domain == "blocks4ops-slots":
-        operator_type = operator.name.split(" ")[0].strip("(")
-        if operator_type == "pickup" or operator_type == "putdown":
-            operator_blocks = [obj.strip(")") for obj in operator.name.split(" ")[1:2]]
-        else:
-            operator_blocks = [obj.strip(")") for obj in operator.name.split(" ")[1:3]]
-        # operator_final is the ground action atom without the slot and height variables
-        operator_final = f"({operator_type} {' '.join(operator_blocks)})"
-    elif domain == "blocks3ops-slots":
-        operator_type = operator.name.split(" ")[0].strip("(")
-        if operator_type == "newtower" or operator_type == "stack":
-            operator_blocks = [obj.strip(")") for obj in operator.name.split(" ")[1:3]]
-        else:
-            operator_blocks = [obj.strip(")") for obj in operator.name.split(" ")[1:4]]
-        operator_final = f"({operator_type} {' '.join(operator_blocks)})"
-    elif domain == "gripper-slots":
-        operator_type = operator.name.split(" ")[0].strip("(")
-        if operator_type == "move":
-            operator_blocks = [obj.strip(")") for obj in operator.name.split(" ")[1:3]]
-        else:
-            operator_blocks = [obj.strip(")") for obj in operator.name.split(" ")[1:4]]
-        # operator_final is the ground action atom without the slot variables
-        operator_final = f"({operator_type} {' '.join(operator_blocks)})"
-    else:
-        operator_final = operator.name
-    return operator_final
-
-def get_transitions(domain_name, tasks, k=1) -> List[Transitions]:
-    transitions = []
+def get_transitions(tasks: List) -> List[Transitions]:
+    list_transitions = []
     for task in tasks:
         start_time = timer()
         explored_transitions = set()
         initial_state = task.initial_state
-        logger.debug(f'{task.name}.pddl: initial-state={initial_state}')
-
-        # num_edges_for_state is a dictionary
-        # dict entries are of the form key=(s,a) : value=n
-        # where: s is a hidden state, a is a ground action, n is the number of transitions recorded from s via a
-        num_edges = {}
+        logger.debug(f'{task.name} (in {task.fname}): initial-state={initial_state}')
 
         queue = deque()
         queue.append(searchspace.make_root_node(initial_state))
         while queue:
             node = queue.popleft()
             src = tuple(sorted(node.state))
-            hidden_s = hidden_state(node.state, domain_name)
-            # sample k successor for each hidden action (unless there are less j<k successors, then sample j)
-            successors = shuffle(task.get_successor_states(node.state))
-            for operator, successor_state in successors:
+            logger.debug(f'{task.name} (in {task.fname}): node dequeued: state={src}')
+            for operator, successor_state in task.get_successor_states(node.state):
                 dst = tuple(sorted(successor_state))
-                hidden_a = hidden_action(operator, domain_name)
-                if (hidden_s, hidden_a) not in num_edges:
-                    num_edges[(hidden_s, hidden_a)] = 0
-                if num_edges[(hidden_s, hidden_a)] < k:
-                    transition = (src, operator.name, dst)
-                    if transition not in explored_transitions:
-                        queue.append(searchspace.make_child_node(node, operator, successor_state))
-                        explored_transitions.append(transition)
-                        num_edges[(hidden_s, hidden_a)] += 1
-        transitions.append(tuple(sorted(explored_transitions)))
+                transition = (src, operator.name, dst)
+                if transition not in explored_transitions:
+                    explored_transitions.add(transition)
+                    queue.append(searchspace.make_child_node(node, operator, successor_state))
+                    logger.debug(f'{task.name} (in {task.fname}): state={src}, operator={operator.name}, successor={dst}')
+        list_transitions.append(tuple(sorted(explored_transitions)))
 
         elapsed_time = timer() - start_time
-        logger.info(f'{task.name}.pddl: {len(explored_transitions)} edge(s) in {elapsed_time:.3f} second(s)')
+        logger.info(f'{task.name} (in {task.fname}): {len(explored_transitions)} edge(s) in {elapsed_time:.3f} second(s)')
 
-    return transitions
+    return list_transitions
+
+def construct_canonical_function(symb2spatial: Dict) -> Callable:
+    assert 'canonical' in symb2spatial, f"Expecting 'canonical' entry in symb2spatial: {symb2spatial}"
+    #canonical = [ tuple(['(' + split[0] + ' ', int(split[1])]) for split in map(lambda item: item.split('/'), symb2spatial['canonical']) ]
+    canonical_atoms = [ '(' + item.split('/')[0] + ' ' for item in symb2spatial['canonical'] ]
+    def canonical_func(state: Set) -> Tuple:
+        return tuple(sorted([ atom for atom in state if any(map(lambda x: atom.startswith(x), canonical_atoms)) ]))
+    return canonical_func
+
+def sample_transitions_in_task(transitions: Transitions, task, canonical_func: Callable, target_ratio: float, logger) -> Transitions:
+    assert target_ratio >= 1
+
+    # store for canonical transitions
+    store = set()
+
+    # first pass, instantiate each canonical transition in some direction
+    sampled_transitions = set()
+    num_sampled_transitions = 0
+    for transition in transitions:
+        c_src = canonical_func(transition[0])
+        c_dst = canonical_func(transition[1])
+        if (c_src, c_dst) not in store:
+            #print(c_src, c_dst)
+            sampled_transitions.add(transition)
+            store.add((c_src, c_dst))
+            num_sampled_transitions += 1
+    num_canonical_transitions = num_sampled_transitions
+    change = True
+    ratio = 1.0
+
+    # do more passes until ratio >= target_ratio
+    shuffled_transitions = list(transitions)
+    while change and ratio < target_ratio:
+        change = False
+        shuffle(shuffled_transitions)
+        for transition in shuffled_transitions:
+            c_src = canonical_func(transition[0])
+            c_dst = canonical_func(transition[2])
+            if transition not in sampled_transitions:
+                sampled_transitions.add(transition)
+                num_sampled_transitions += 1
+                ratio = num_sampled_transitions / num_canonical_transitions
+                if ratio >= target_ratio: break
+                change = True
+    sampled_transitions = tuple(sorted(sampled_transitions))
+    logger.info(f'task {task.name} (in {task.fname}): #canonical_transitions={num_canonical_transitions}, #sampled_transitions={num_sampled_transitions}, ratio={ratio}')
+    return sampled_transitions
+
+def sample_transitions(list_transitions: List[Transitions], tasks: List, target_ratio: float, symb2state: Dict, logger) -> List[Transitions]:
+    canonical_func = construct_canonical_function(symb2spatial)
+    list_sampled_transitions = [ sample_transitions_in_task(transitions, task, canonical_func, target_ratio, logger) for transitions, task in zip(list_transitions, tasks) ]
+    logger.info(f'sample_transitions: #sampled_transitions={sum(map(len, list_sampled_transitions))}')
+    return list_sampled_transitions
 
 # Write graph files (.lp)
 def write_graph_file(predicates: List, slice_desc: Tuple, instance: int, states: List, states_dict: Dict,
@@ -1168,16 +1175,16 @@ def write_graph_file(predicates: List, slice_desc: Tuple, instance: int, states:
     elapsed_time = timer() - start_time
     logger.info(f'{graph_filename}: {written_lines} line(s) for instance {instance} [slice={slice_desc}] in {elapsed_time:.3f} second(s)')
 
-def write_graph_files(predicates: List, states: List, states_dict: List[dict], transitions: List[Transitions], o2d_states: List[O2DState],
+def write_graph_files(predicates: List, states: List, states_dict: List[dict], list_transitions: List[Transitions], o2d_states: List[O2DState],
                       offsets: List[int], output_path: Path, problem_filenames: List[Path], symb2spatial: Dict):
     assert len(states) == len(o2d_states)
-    assert len(transitions) == len(problem_filenames)
+    assert len(list_transitions) == len(problem_filenames)
     for i, fname in enumerate(problem_filenames):
         beg, end = offsets[i], offsets[i+1] if i+1 in offsets else len(states)
         slice_states = states[beg:end]
         slice_o2d_states = o2d_states[beg:end]
         graph_filename = output_path / fname.with_suffix('.lp').name
-        write_graph_file(predicates, (beg, end), i, slice_states, states_dict[i], transitions[i], slice_o2d_states, graph_filename, symb2spatial)
+        write_graph_file(predicates, (beg, end), i, slice_states, states_dict[i], list_transitions[i], slice_o2d_states, graph_filename, symb2spatial)
 
 def get_o2d_concepts_and_roles(symb2spatial: Dict) -> Dict:
     assert 'o2d' in symb2spatial, "TEMPORAL CHECK (REMOVE AFTERWARDS): expecting 'o2d' record in registry" #CHECK
@@ -1212,10 +1219,9 @@ if __name__ == '__main__':
     restrictions.add_argument('--cardinality_restrictions', action='store_true', help=f'toggle generation of cardinality restrictions')
     restrictions.add_argument('--role_restrictions', action='store_true', help=f'toggle generation of role restrictions')
 
-    # number of edges
-    default_num_edges = 1
-    nedges = parser.add_argument_group('number of edges')
-    nedges.add_argument('--num-edges', dest='num_edges', type=int, default=default_num_edges, help=f"max number of o2d edges to sample for each hidden edge")
+    # sampled edges
+    sampled = parser.add_argument_group('sampling of edges (for tasks with multiple images):')
+    sampled.add_argument('--target_ratio', type=float, default=0, help=f'define target ratio for sampling edges (default 0 means no sampling)')
 
     # additional options
     default_debug_level = 0
@@ -1238,7 +1244,7 @@ if __name__ == '__main__':
     output_folder = f'{domain_name}_complexity={args.max_complexity}'
     if args.role_restrictions: output_folder += '_r_restr'
     if args.cardinality_restrictions: output_folder += '_c_restr'
-    output_folder += f'_nedges={args.num_edges}'
+    if args.target_ratio > 0: output_folder += f'_esampling={args.target_ratio}'
     output_path = (domain_path if args.output_path is None else Path(args.output_path)) / output_folder
     output_path_graphs = output_path / 'test'
     output_path.mkdir(parents=True, exist_ok=True)
@@ -1287,26 +1293,31 @@ if __name__ == '__main__':
 
     start_time = timer()
     logger.info(colored(f'Generate transitions in PDDL files...', 'red', attrs = [ 'bold' ]))
-    transitions = get_transitions(problems[0].domain_name, tasks, args.num_edges)
+    list_transitions = get_transitions(tasks)
     elapsed_time = timer() - start_time
-    logger.info(colored(f'{sum(map(lambda x: len(x), transitions))} edge(s) in {elapsed_time:.3f} second(s)', 'blue'))
+    logger.info(colored(f'{sum(map(lambda x: len(x), list_transitions))} edge(s) in {elapsed_time:.3f} second(s)', 'blue'))
 
     # remove tasks with no transitions
-    good_tasks = [ i for i in range(len(transitions)) if len(transitions[i]) > 0 ]
-    if len(good_tasks) < len(transitions):
-        bad_tasks = [ i for i in range(len(transitions)) if i not in good_tasks ]
+    good_tasks = [ i for i, transitions in enumerate(list_transitions) if len(transitions) > 0 ]
+    if len(good_tasks) < len(list_transitions):
+        bad_tasks = [ i for i in range(len(list_transitions)) if i not in good_tasks ]
         logger.info(colored(f'Removing {len(bad_tasks)} problem(s) that have zero transitions: {[ problem_filenames[i].name for i in bad_tasks ]}', 'red'))
     problem_filenames = [ problem_filenames[i] for i in good_tasks ]
     problems = [ problems[i] for i in good_tasks ]
     tasks = [ tasks[i] for i in good_tasks ]
-    transitions = tuple([ transitions[i] for i in good_tasks ])
+    list_transitions = tuple([ list_transitions[i] for i in good_tasks ])
+
+    # sample transitions (if requested)
+    if args.target_ratio > 0:
+        assert args.target_ratio >= 1
+        list_transitions = sample_transitions(list_transitions, tasks, args.target_ratio, symb2spatial, logger)
 
     # get O2D states
     start_time = timer()
     logger.info(colored(f'Generate O2D states...', 'red', attrs = [ 'bold' ]))
-    states, states_dict, o2d_states, offsets = get_o2d_states(problems, transitions, symb2spatial, o2d_concepts_and_roles)
+    states, states_dict, o2d_states, offsets = get_o2d_states(problems, list_transitions, symb2spatial, o2d_concepts_and_roles)
     elapsed_time = timer() - start_time
-    logger.info(colored(f'{len(o2d_states)} state(s) in {sum(map(lambda x: len(x), transitions))} edge(s) in {elapsed_time:.3f} second(s)', 'blue'))
+    logger.info(colored(f'{len(o2d_states)} state(s) in {sum(map(lambda x: len(x), list_transitions))} edge(s) in {elapsed_time:.3f} second(s)', 'blue'))
 
     # generate predicates
     start_time = timer()
@@ -1337,9 +1348,9 @@ if __name__ == '__main__':
     # Last thing is to produce .lp files
     start_time = timer()
     logger.info(colored(f'Write graph files...', 'red', attrs = [ 'bold' ]))
-    write_graph_files(predicates, states, states_dict, transitions, o2d_states, offsets, output_path_graphs, problem_filenames, symb2spatial)
+    write_graph_files(predicates, states, states_dict, list_transitions, o2d_states, offsets, output_path_graphs, problem_filenames, symb2spatial)
     elapsed_time = timer() - start_time
-    logger.info(colored(f'{len(transitions)} file(s) written in {elapsed_time:.3f} second(s)', 'blue'))
+    logger.info(colored(f'{len(list_transitions)} file(s) written in {elapsed_time:.3f} second(s)', 'blue'))
 
     elapsed_time = timer() - entry_time
     logger.info(colored(f'All tasks completed in {elapsed_time:.3f} second(s)', 'blue'))
