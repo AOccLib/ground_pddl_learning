@@ -1,68 +1,47 @@
 (define (domain blocks4ops-slots)
-(:requirements )
-(:predicates
-    ; original blocksworld predicates
-    (clear ?x)
+  (:requirements :strips :typing)
+  (:types block slot height)
+  (:constants h0 - height) ; minimum height
+  (:predicates
+    (on ?x ?y - block)
+    (ontable ?x - block)
+    (clear ?x - block)
+    (holding ?x - block)
     (handempty)
-    (holding ?x)
-    (ontable ?x)
-    (on ?x ?y)
+    (neq ?x ?y - block)
     ; new predicates
-    (freetable ?s)  ; there is no block on the table at slot s
-    (at ?s ?h ?x)   ; block x is at slot s, height h
-    (succ ?n ?m)  ; n is the successor of m, used for heights and slots
-)
-;;;;;;;;;;;;;;;;;;;; ACTION SCHEMAS ;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;; PICKUP ;;;;;;;;;;;;;;;;;;;;
-    ; pickup block x from slot s
-    (:action pickup
-     :parameters (?x ?s)
-     :precondition( and (ontable ?x) (clear ?x) (at ?s h0 ?x) (handempty))
-     :effect
-     (and (not (at ?s h0 ?x))
-     (not (clear ?x))
-     (not (handempty))
-     (holding ?x)
-     (freetable ?s)
-     (not (ontable ?x))
-    ))
-;;;;;;;;;;;;;;;;;;;; PUTDOWN ;;;;;;;;;;;;;;;;;;;;
-    ; putdown block x in slot s
-    (:action putdown
-         :parameters (?x ?s)
-         :precondition (and (holding ?x) (freetable ?s))
-         :effect
-         (and (not (holding ?x))
-           (clear ?x)
-           (handempty)
-           (at ?s h0 ?x)
-           (ontable ?x)
-           (not (freetable ?s))
-           ))
-;;;;;;;;;;;;;;;;;;;; STACK ;;;;;;;;;;;;;;;;;;;;
-    ; stack block x in slot s at height h1, on top of block y
-    (:action stack
-         :parameters (?x ?y ?s ?h1 ?h2)
-         :precondition (and (holding ?x) (clear ?y) (at ?s ?h2 ?y) (succ ?h1 ?h2))
-         :effect
-         (and (not (holding ?x))
-           (not (clear ?y))
-           (clear ?x)
-           (handempty)
-           (at ?s ?h1 ?x)
-           (on ?x ?y)
-           ))
-;;;;;;;;;;;;;;;;;;;; UNSTACK ;;;;;;;;;;;;;;;;;;;;
-    ; unstack block x from slot s at height h1, on top of block y
-     (:action unstack
-             :parameters (?x ?y ?s ?h1 ?h2)
-             :precondition (and (clear ?x) (handempty) (on ?x ?y) (at ?s ?h1 ?x) (at ?s ?h2 ?y) (succ ?h1 ?h2))
-             :effect
-             (and (holding ?x)
-               (clear ?y)
-               (not (on ?x ?y))
-               (not (clear ?x))
-               (not (handempty))
-               (not (at ?s ?h1 ?x))
-               ))
+    (freetable ?s - slot)                  ; there is no block on the table at slot s
+    (at ?s - slot ?h - height ?x - block)  ; block x is at slot s, height h
+    (succ_h ?n ?m - height)                ; height n is successor of height m
+    (succ_s ?n ?m - slot)                  ; slot n is successor of slot m
+  )
+
+  (:action pickup
+    :parameters (?x - block ?sx - slot)
+    :precondition (and (ontable ?x) (clear ?x) (handempty) (at ?sx h0 ?x))
+    :effect (and (not (clear ?x)) (not (handempty)) (not (ontable ?x)) (holding ?x)
+                 (not (at ?sx h0 ?x)) (freetable ?sx))
+  )
+
+  (:action putdown
+    :parameters (?x - block ?sx - slot)
+    :precondition (and (holding ?x) (freetable ?sx))
+    :effect (and (not (holding ?x)) (clear ?x) (ontable ?x) (handempty)
+                 (at ?sx h0 ?x) (not (freetable ?s)))
+  )
+
+  (:action stack
+    :parameters (?x ?y - block ?sy - slot ?hy ?h - height)
+    :precondition (and (holding ?x) (clear ?y) (at ?sy ?hy ?y) (succ ?h ?hy))
+    :effect (and (not (holding ?x)) (not (clear ?y)) (clear ?x) (handempty) (on ?x ?y)
+                 (at ?sy ?h ?x))
+  )
+
+  (:action unstack
+    :parameters (?x ?y - block ?sx ?hx - height)
+    :precondition (and (clear ?x) (on ?x ?y) (handempty) (at ?sx ?hx ?x))
+    :effect (and (not (clear ?x)) (not (on ?x ?y)) (not (handempty))
+                 (holding ?x) (clear ?y)
+                 (not (at ?sx ?hx ?x)))
+  )
 )
