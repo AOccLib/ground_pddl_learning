@@ -20,28 +20,28 @@
 
   (:action pickup
     :parameters (?x ?sx)
-    :precondition (and (ontable ?x) (clear ?x) (handempty) (at ?sx h0 ?x))
+    :precondition (and (block ?x) (slot ?sx) (ontable ?x) (clear ?x) (handempty) (at ?sx h0 ?x))
     :effect (and (not (clear ?x)) (not (handempty)) (not (ontable ?x)) (holding ?x)
                  (not (at ?sx h0 ?x)) (freetable ?sx))
   )
 
   (:action putdown
     :parameters (?x ?sx)
-    :precondition (and (holding ?x) (freetable ?sx))
+    :precondition (and (block ?x) (slot ?sx) (holding ?x) (freetable ?sx))
     :effect (and (not (holding ?x)) (clear ?x) (ontable ?x) (handempty)
                  (at ?sx h0 ?x) (not (freetable ?sx)))
   )
 
   (:action stack
     :parameters (?x ?y ?sy ?hy ?h)
-    :precondition (and (holding ?x) (clear ?y) (at ?sy ?hy ?y) (succ_h ?h ?hy))
+    :precondition (and (block ?x) (block ?y) (slot ?sy) (height ?hy) (height ?h) (holding ?x) (clear ?y) (at ?sy ?hy ?y) (succ_h ?h ?hy))
     :effect (and (not (holding ?x)) (not (clear ?y)) (clear ?x) (handempty) (on ?x ?y)
                  (at ?sy ?h ?x))
   )
 
   (:action unstack
     :parameters (?x ?y ?sx ?hx)
-    :precondition (and (clear ?x) (on ?x ?y) (handempty) (at ?sx ?hx ?x))
+    :precondition (and (block ?x) (block ?y) (slot ?sx) (height ?hx) (clear ?x) (on ?x ?y) (handempty) (at ?sx ?hx ?x))
     :effect (and (not (clear ?x)) (not (on ?x ?y)) (not (handempty))
                  (holding ?x) (clear ?y)
                  (not (at ?sx ?hx ?x)))
