@@ -99,6 +99,7 @@ def verify_instance(ground_model : dict, inst : int, logger) -> (bool, List[int]
         logger.warning(f'Projected s{j}={jnode}')
         if nodes[i] == nodes[j]:
             logger.error(colored("These nodes aren't separated by any set of features", "red", attrs = [ "bold" ]))
+            logger.error(f's{i}=s{j}={nodes[i]}')
         return False, [ i, j ]
 
     # CHECK: Code below assumes nodes in instance are enumerated as 0...n-1 where n is number of nodes
