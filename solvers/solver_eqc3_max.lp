@@ -603,7 +603,7 @@ less(V,V+1,A,I,P,2) :- V = 1..max_action_arity-1, action(A), I = 1..2, pred(P),
 % Optimize (lexicographic ordering)
 
 % Maximize number of equivalence classes
-#maximize { R@12,I : repr(I,R) }.
+#maximize { 1@12,I,R : repr(I,R) }.
 
 % Prefer models with minimum sum of actions' cardinalities
 #minimize { 1+N@10, A : a_arity(A,N) }.
