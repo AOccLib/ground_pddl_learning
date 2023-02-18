@@ -1027,6 +1027,7 @@ def sample_transitions_in_task(transitions: Transitions, task, canonical_func: C
     # store for canonical transitions
     store = set()
     store_states = set()
+    store_canonical = set()
 
     # shuffle transitions
     shuffled_transitions = list(transitions)
@@ -1038,12 +1039,14 @@ def sample_transitions_in_task(transitions: Transitions, task, canonical_func: C
     for transition in shuffled_transitions:
         c_src = canonical_func(transition[0])
         c_dst = canonical_func(transition[2])
-        store_states.add(c_src)
-        store_states.add(c_dst)
+        store_canonical.add(c_src)
+        store_canonical.add(c_dst)
         if (c_src, c_dst) not in store:
             #print(c_src, c_dst)
             sampled_transitions.add(transition)
             store.add((c_src, c_dst))
+            store_states.add(transition[0])
+            store_states.add(transition[2])
             num_sampled_transitions += 1
     num_canonical_transitions = num_sampled_transitions
     change = True
@@ -1063,7 +1066,7 @@ def sample_transitions_in_task(transitions: Transitions, task, canonical_func: C
                 if ratio >= target_ratio: break
                 change = True
     sampled_transitions = tuple(sorted(sampled_transitions))
-    logger.info(f'task {task.name} (in {task.fname}): #canonical_states={len(store_states)}, #canonical_transitions={num_canonical_transitions}, #sampled_transitions={num_sampled_transitions}, ratio={ratio}')
+    logger.info(f'task {task.name} (in {task.fname}): #canonical={{states={len(store_canonical)}, transitions={num_canonical_transitions}}}, #sampled={{states={len(store_states)}, transitions={num_sampled_transitions}, ratio={ratio}}}')
     return sampled_transitions
 
 def sample_transitions(list_transitions: List[Transitions], tasks: List, target_ratio: float, symb2state: Dict, logger) -> List[Transitions]:
