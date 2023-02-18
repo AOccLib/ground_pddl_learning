@@ -41,7 +41,7 @@
                                           ["overlap(Y,X)",       ["overlap(X,Y)"]] ],
                        "below/2"      : [ ["below(X,Y)",         ["on(Y,X)"]],
                                           ["below(X,Y)",         ["ontable(Y)", "table(X)"]] ],
-                       "left/2"       : [ ["left(X,Y)",          ["at(S1,H,X)", "at(S2,H,Y)", "succ(S2,S1)"]] ],
+                       "left/2"       : [ ["left(X,Y)",          ["at(S1,H,X)", "at(S2,H,Y)", "leftof(S2,S1)"]] ],
                        "smaller/2"    : [ ["smaller(X,Y)",       ["block(X)", "table(Y)"]],
                                           ["smaller(X,Y)",       ["block(X)", "robot(Y)"]],
                                           ["smaller(X,Y)",       ["robot(X)", "table(Y)"]],
@@ -58,7 +58,7 @@
                                           ["block(X)",           ["holding(X)"]] ],
                        "below/2"      : [ ["below(X,Y)",         ["on(Y,X)"]],
                                           ["below(X,Y)",         ["ontable(Y)", "table(X)"]] ],
-                       "left/2"       : [ ["left(X,Y)",          ["at(S1,H,X)", "at(S2,H,Y)", "succ(S2,S1)"]] ],
+                       "left/2"       : [ ["left(X,Y)",          ["at(S1,H,X)", "at(S2,H,Y)", "leftof(S2,S1)"]] ],
                        "smaller/2"    : [ ["smaller(X,Y)",       ["block(X)", "table(Y)"]],
                                           ["smaller(X,Z)",       ["smaller(X,Y)", "smaller(Y,Z)"]] ],
                        "shape/2"      : [ ["shape(X,rectangle)", ["object(X)"]] ]
