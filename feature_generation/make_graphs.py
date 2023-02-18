@@ -1016,7 +1016,6 @@ def get_transitions(tasks: List) -> List[Transitions]:
 
 def construct_canonical_function(symb2spatial: Dict) -> Callable:
     assert 'canonical' in symb2spatial, f"Expecting 'canonical' entry in symb2spatial: {symb2spatial}"
-    #canonical = [ tuple(['(' + split[0] + ' ', int(split[1])]) for split in map(lambda item: item.split('/'), symb2spatial['canonical']) ]
     canonical_atoms = [ '(' + item.split('/')[0] + ' ' for item in symb2spatial['canonical'] ]
     def canonical_func(state: Set) -> Tuple:
         return tuple(sorted([ atom for atom in state if any(map(lambda x: atom.startswith(x), canonical_atoms)) ]))
@@ -1027,6 +1026,7 @@ def sample_transitions_in_task(transitions: Transitions, task, canonical_func: C
 
     # store for canonical transitions
     store = set()
+    store_states = set()
 
     # shuffle transitions
     shuffled_transitions = list(transitions)
@@ -1038,6 +1038,8 @@ def sample_transitions_in_task(transitions: Transitions, task, canonical_func: C
     for transition in shuffled_transitions:
         c_src = canonical_func(transition[0])
         c_dst = canonical_func(transition[2])
+        store_states.add(c_src)
+        store_states.add(c_dst)
         if (c_src, c_dst) not in store:
             #print(c_src, c_dst)
             sampled_transitions.add(transition)
@@ -1061,7 +1063,7 @@ def sample_transitions_in_task(transitions: Transitions, task, canonical_func: C
                 if ratio >= target_ratio: break
                 change = True
     sampled_transitions = tuple(sorted(sampled_transitions))
-    logger.info(f'task {task.name} (in {task.fname}): #canonical_transitions={num_canonical_transitions}, #sampled_transitions={num_sampled_transitions}, ratio={ratio}')
+    logger.info(f'task {task.name} (in {task.fname}): #canonical_states={len(store_states)}, #canonical_transitions={num_canonical_transitions}, #sampled_transitions={num_sampled_transitions}, ratio={ratio}')
     return sampled_transitions
 
 def sample_transitions(list_transitions: List[Transitions], tasks: List, target_ratio: float, symb2state: Dict, logger) -> List[Transitions]:
