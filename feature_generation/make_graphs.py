@@ -1028,12 +1028,16 @@ def sample_transitions_in_task(transitions: Transitions, task, canonical_func: C
     # store for canonical transitions
     store = set()
 
+    # shuffle transitions
+    shuffled_transitions = list(transitions)
+    random.shuffle(shuffled_transitions)
+
     # first pass, instantiate each canonical transition in some direction
     sampled_transitions = set()
     num_sampled_transitions = 0
-    for transition in transitions:
+    for transition in shuffled_transitions:
         c_src = canonical_func(transition[0])
-        c_dst = canonical_func(transition[1])
+        c_dst = canonical_func(transition[2])
         if (c_src, c_dst) not in store:
             #print(c_src, c_dst)
             sampled_transitions.add(transition)
@@ -1044,7 +1048,6 @@ def sample_transitions_in_task(transitions: Transitions, task, canonical_func: C
     ratio = 1.0
 
     # do more passes until ratio >= target_ratio
-    shuffled_transitions = list(transitions)
     while change and ratio < target_ratio:
         change = False
         random.shuffle(shuffled_transitions)
