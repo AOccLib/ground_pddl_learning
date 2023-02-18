@@ -15,7 +15,7 @@
     (freetable ?s)  ; there is no block on the table at slot s
     (at ?s ?h ?x)   ; block x is at slot s, height h
     (succ_h ?n ?m)  ; height n is successor of height m
-    (succ_s ?n ?m)  ; slot n is successor of slot m
+    (leftof ?n ?m)  ; slot n is to the left of slot m
   )
 
   (:action pickup
