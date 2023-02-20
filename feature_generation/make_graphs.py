@@ -1052,7 +1052,7 @@ def sample_transitions(tasks: List, max_k: int, canonical_func: Callable, logger
         list_sampled_transitions.append(tuple(sorted(sampled_transitions)))
 
         elapsed_time = timer() - start_time
-        logger.info(f'{task.name}: {len(explored_transitions)} edge(s) and {len(sampled_transitions)} sampled edge(s) in {elapsed_time:.3f} second(s)')
+        logger.info(f'{task.name}: {len(explored_transitions)} edge(s), {len(canonical_transitions)} canonical edge(s), and {len(sampled_transitions)} sampled edge(s) in {elapsed_time:.3f} second(s)')
 
     return list_sampled_transitions
 
