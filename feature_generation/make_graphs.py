@@ -986,33 +986,75 @@ def get_tasks(domain_filename, problem_filenames):
         setattr(task, 'fname', fname.name)
     return problems, tasks
 
-def get_transitions(tasks: List) -> List[Transitions]:
+def get_transitions(tasks: List, logger) -> List[Transitions]:
+    # for each task, do a BFS exploration to discover all transitions in task
     list_transitions = []
     for task in tasks:
         start_time = timer()
         explored_transitions = set()
         initial_state = task.initial_state
-        logger.debug(f'{task.name} (in {task.fname}): initial-state={initial_state}')
+        logger.debug(f'{task.name} (in {task.fname}): initial_state={initial_state}')
 
         queue = deque()
         queue.append(searchspace.make_root_node(initial_state))
         while queue:
             node = queue.popleft()
             src = tuple(sorted(node.state))
-            #logger.debug(f'{task.name} (in {task.fname}): node dequeued: state={src}')
+            logger.debug(f'{task.name}: node dequeued: state={src}')
             for operator, successor_state in task.get_successor_states(node.state):
                 dst = tuple(sorted(successor_state))
                 transition = (src, operator.name, dst)
                 if transition not in explored_transitions:
                     explored_transitions.add(transition)
                     queue.append(searchspace.make_child_node(node, operator, successor_state))
-                    #logger.debug(f'{task.name} (in {task.fname}): state={src}, operator={operator.name}, successor={dst}')
+                    logger.debug(f'{task.name}: add transition={transition}')
         list_transitions.append(tuple(sorted(explored_transitions)))
 
         elapsed_time = timer() - start_time
-        logger.info(f'{task.name} (in {task.fname}): {len(explored_transitions)} edge(s) in {elapsed_time:.3f} second(s)')
+        logger.info(f'{task.name}: {len(explored_transitions)} edge(s) in {elapsed_time:.3f} second(s)')
 
     return list_transitions
+
+def sample_transitions(tasks: List, max_k: float, canonical_func: Callable, logger) -> List[Transitions]:
+    # similar to get_transitions() but keep record of "canonical transitions" seen,
+    # and keep up to k transitions for each canonical transition. Successors states
+    # are randomly shuffled before exploring them.
+    canonical_func = construct_canonical_function(symb2spatial)
+    list_sampled_transitions = []
+    for task in tasks:
+        start_time = timer()
+        sampled_transitions = []
+        canonical_transitions = {}
+        explored_transitions = set()
+        initial_state = task.initial_state
+        logger.debug(f'{task.name} (in {task.fname}): initial_state={initial_state}')
+
+        queue = deque()
+        queue.append(searchspace.make_root_node(initial_state))
+        while queue:
+            node = queue.popleft()
+            src = tuple(sorted(node.state))
+            logger.debug(f'{task.name}: node dequeued: state={src}')
+            successors = task.get_successor_states(node.state)
+            random.shuffle(successors)
+            for operator, successor_state in successors:
+                dst = tuple(sorted(successor_state))
+                transition = (src, operator.name, dst)
+                if transition not in explored_transitions:
+                    explored_transitions.add(transition)
+                    c_transition = (canonical_func(src), canonical_func(dst))
+                    num_instances = canonical_transitions.get(c_transition, 0)
+                    if num_instances < max_k:
+                        canonical_transitions[c_transition] = 1 + num_instances
+                        sampled_transitions.append(transition)
+                        logger.debug(f'{task.name}: add transition={transition}')
+                    queue.append(searchspace.make_child_node(node, operator, successor_state))
+        list_sampled_transitions.append(tuple(sorted(sampled_transitions)))
+
+        elapsed_time = timer() - start_time
+        logger.info(f'{task.name}: {len(explored_transitions)} edge(s) and {len(sampled_transitions)} sampled edge(s) in {elapsed_time:.3f} second(s)')
+
+    return list_sampled_transitions
 
 def construct_canonical_function(symb2spatial: Dict) -> Callable:
     assert 'canonical' in symb2spatial, f"Expecting 'canonical' entry in symb2spatial: {symb2spatial}"
@@ -1021,58 +1063,54 @@ def construct_canonical_function(symb2spatial: Dict) -> Callable:
         return tuple(sorted([ atom for atom in state if any(map(lambda x: atom.startswith(x), canonical_atoms)) ]))
     return canonical_func
 
-def sample_transitions_in_task(transitions: Transitions, task, canonical_func: Callable, target_ratio: float, logger) -> Transitions:
+def sample_transitions_with_ratio(list_transitions: List[Transitions], tasks: List, target_ratio: float, symb2state: Dict, logger) -> List[Transitions]:
     assert target_ratio >= 1
+    start_time = timer()
+    canonical_func = construct_canonical_function(symb2spatial)
+    list_sampled_transitions = []
+    for transitions, task in zip(list_transitions, tasks):
+        # stores: canonical transitions, full states, and canonical states
+        store_c_transitions = set()
+        store_c_states = set()
+        store_states = set()
 
-    # store for canonical transitions
-    store = set()
-    store_states = set()
-    store_canonical = set()
-
-    # shuffle transitions
-    shuffled_transitions = list(transitions)
-    random.shuffle(shuffled_transitions)
-
-    # first pass, instantiate each canonical transition in some direction
-    sampled_transitions = set()
-    num_sampled_transitions = 0
-    for transition in shuffled_transitions:
-        c_src = canonical_func(transition[0])
-        c_dst = canonical_func(transition[2])
-        store_canonical.add(c_src)
-        store_canonical.add(c_dst)
-        if (c_src, c_dst) not in store:
-            #print(c_src, c_dst)
-            sampled_transitions.add(transition)
-            store.add((c_src, c_dst))
-            store_states.add(transition[0])
-            store_states.add(transition[2])
-            num_sampled_transitions += 1
-    num_canonical_transitions = num_sampled_transitions
-    change = True
-    ratio = 1.0
-
-    # do more passes until ratio >= target_ratio
-    while change and ratio < target_ratio:
-        change = False
+        # shuffle transitions
+        shuffled_transitions = list(transitions)
         random.shuffle(shuffled_transitions)
+
+        # first pass, instantiate each canonical transition in some direction
+        sampled_transitions = set()
         for transition in shuffled_transitions:
             c_src = canonical_func(transition[0])
             c_dst = canonical_func(transition[2])
-            if transition not in sampled_transitions:
+            store_c_states.add(c_src)
+            store_c_states.add(c_dst)
+            if (c_src, c_dst) not in store_c_transitions:
                 sampled_transitions.add(transition)
-                num_sampled_transitions += 1
-                ratio = num_sampled_transitions / num_canonical_transitions
-                if ratio >= target_ratio: break
-                change = True
-    sampled_transitions = tuple(sorted(sampled_transitions))
-    logger.info(f'task {task.name} (in {task.fname}): #canonical={{states={len(store_canonical)}, transitions={num_canonical_transitions}}}, #sampled={{states={len(store_states)}, transitions={num_sampled_transitions}, ratio={ratio}}}')
-    return sampled_transitions
+                store_c_transitions.add((c_src, c_dst))
+                store_states.add(transition[0])
+                store_states.add(transition[2])
+        num_canonical_transitions = len(sampled_transitions)
+        change = True
+        ratio = 1.0
 
-def sample_transitions(list_transitions: List[Transitions], tasks: List, target_ratio: float, symb2state: Dict, logger) -> List[Transitions]:
-    canonical_func = construct_canonical_function(symb2spatial)
-    list_sampled_transitions = [ sample_transitions_in_task(transitions, task, canonical_func, target_ratio, logger) for transitions, task in zip(list_transitions, tasks) ]
-    logger.info(f'sample_transitions: #sampled_transitions={sum(map(len, list_sampled_transitions))}')
+        # do more passes until ratio >= target_ratio
+        while change and ratio < target_ratio:
+            change = False
+            random.shuffle(shuffled_transitions)
+            for transition in shuffled_transitions:
+                c_src = canonical_func(transition[0])
+                c_dst = canonical_func(transition[2])
+                if transition not in sampled_transitions:
+                    sampled_transitions.add(transition)
+                    ratio = len(sampled_transitions) / num_canonical_transitions
+                    if ratio >= target_ratio: break
+                    change = True
+        sampled_transitions = tuple(sorted(sampled_transitions))
+        list_sampled_transitions.append(sampled_transitions)
+        logger.info(f'task {task.name} (in {task.fname}): #canonical={{states={len(store_c_states)}, transitions={num_canonical_transitions}}}, #sampled={{states={len(store_states)}, transitions={len(sampled_transitions)}, ratio={ratio}}}')
+
+    logger.info(f'#sampled_transitions={sum(map(len, list_sampled_transitions))}, {timer() - start_time:.3f} elapsed second(s)')
     return list_sampled_transitions
 
 # Write graph files (.lp)
@@ -1234,7 +1272,8 @@ if __name__ == '__main__':
     # sampled edges
     default_seed = 0
     sampled = parser.add_argument_group('sampling of edges (for tasks with multiple images):')
-    sampled.add_argument('--target_ratio', type=float, default=0, help=f'define target ratio for sampling edges (default 0 means no sampling)')
+    sampled.add_argument('--max_k', type=float, default=0, help=f'maximum number of instances for each canonical edge (default 0 means disabled)')
+    sampled.add_argument('--target_ratio', type=float, default=0, help=f'define target ratio for sampling edges (default 0 means disabled)')
     sampled.add_argument('--seed', type=int, default=default_seed, help=f'seed for random generator (default={default_seed})')
 
     # additional options
@@ -1259,7 +1298,8 @@ if __name__ == '__main__':
     output_folder = f'{domain_name}_complexity={args.max_complexity}'
     if args.role_restrictions: output_folder += '_r_restr'
     if args.cardinality_restrictions: output_folder += '_c_restr'
-    if args.target_ratio > 0: output_folder += f'_esampling={args.target_ratio}'
+    if args.max_k > 0: output_folder += f'maxk={args.max_k}'
+    if args.target_ratio > 0: output_folder += f'_ratio={args.target_ratio}'
     if args.seed != 0: output_folder += f'_s{args.seed}'
     output_path = (domain_path if args.output_path is None else Path(args.output_path)) / output_folder
     output_path_graphs = output_path / 'test'
@@ -1309,7 +1349,12 @@ if __name__ == '__main__':
 
     start_time = timer()
     logger.info(colored(f'Generate transitions in PDDL files...', 'red', attrs = [ 'bold' ]))
-    list_transitions = get_transitions(tasks)
+    if args.max_k > 0:
+        list_transitions = sample_transitions(tasks, args.max_k, symb2spatial, logger)
+    else:
+        list_transitions = get_transitions(tasks, logger)
+        if args.target_ratio > 0:
+            list_transitions = sample_transitions_with_ratio(list_transitions, tasks, args.target_ratio, symb2spatial, logger)
     elapsed_time = timer() - start_time
     logger.info(colored(f'{sum(map(lambda x: len(x), list_transitions))} edge(s) in {elapsed_time:.3f} second(s)', 'blue'))
 
@@ -1322,11 +1367,6 @@ if __name__ == '__main__':
     problems = [ problems[i] for i in good_tasks ]
     tasks = [ tasks[i] for i in good_tasks ]
     list_transitions = tuple([ list_transitions[i] for i in good_tasks ])
-
-    # sample transitions (if requested)
-    if args.target_ratio > 0:
-        assert args.target_ratio >= 1
-        list_transitions = sample_transitions(list_transitions, tasks, args.target_ratio, symb2spatial, logger)
 
     # get O2D states
     start_time = timer()
