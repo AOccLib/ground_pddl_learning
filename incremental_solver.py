@@ -310,7 +310,7 @@ def solve(solver: Path,
                     unsolved_nodes = [ (inst, node) for node in unverified_nodes if (inst, node) not in data['already_added'] ]
                     if not unsolved_nodes:
                         elapsed_time = timer() - start_time
-                        logger.info(f'#calls={len(solver_wall_times)}, solve_wall_time={sum(solver_wall_times)}, solve_ground_time={sum(solver_ground_times)}, verify_time={sum(map(lambda batch: sum(batch), verify_times_batches))}, elapsed_time={elapsed_time}')
+                        logger.info(f'#calls={len(solver_wall_times)}, solve_wall_time={sum(solver_wall_times):.3f}, solve_ground_time={sum(solver_ground_times):.3f}, verify_time={sum(map(lambda batch: sum(batch), verify_times_batches)):.3f}, elapsed_time={elapsed_time:.3f}')
                         if noise == 0.0:
                             logger.critical(colored(f'Looping on partial.lp with nodes {unverified_nodes} from {fname.name}; already_added={data["already_added"]}', 'red', attrs=['bold']))
                             return False
@@ -345,7 +345,7 @@ def solve(solver: Path,
     elapsed_time = timer() - start_time
     status_string = colored('OK', 'green', attrs=['bold']) if solution_found else colored('Failed', 'red', attrs=['bold'])
     logger.info(f'#iterations={iterations}, added_files={added_files}, #added_nodes={sum(num_added_nodes)} in {num_added_nodes}, #unknowns={sum(num_unknowns)} in {num_unknowns}')
-    logger.info(f'#calls={len(solver_wall_times)}, solve_wall_time={sum(solver_wall_times)}, solve_ground_time={sum(solver_ground_times)}, verify_time={sum(map(lambda batch: sum(batch), verify_times_batches))}, elapsed_time={elapsed_time}, status={status_string}')
+    logger.info(f'#calls={len(solver_wall_times)}, solve_wall_time={sum(solver_wall_times):.3f}, solve_ground_time={sum(solver_ground_times):.3f}, verify_time={sum(map(lambda batch: sum(batch), verify_times_batches)):.3f}, elapsed_time={elapsed_time:.3f}, status={status_string}')
     return solution_found
 
 def _parse_arguments():
