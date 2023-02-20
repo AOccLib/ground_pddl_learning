@@ -428,9 +428,9 @@ if __name__ == '__main__':
     solver = Path(args.solver)
     solver_name = solver.stem
     if args.noise == 0:
-        solve_folder = f'{solver_name}_a={args.max_action_arity}_p={args.max_num_predicates}_s={args.seed}'
+        solve_folder = f'{solver_name}_a={args.max_action_arity}_p={args.max_num_predicates}_s{args.seed}'
     else:
-        solve_folder = f'{solver_name}_a={args.max_action_arity}_p={args.max_num_predicates}_scope={args.scope}_noise={args.noise}_s={args.seed}'
+        solve_folder = f'{solver_name}_a={args.max_action_arity}_p={args.max_num_predicates}_scope={args.scope}_noise={args.noise}_s{args.seed}'
 
     # setup domain paths
     domain = Path(args.domain)
@@ -496,7 +496,7 @@ if __name__ == '__main__':
     # if only verification, check that solve_path contains a solution file and copy it to best_model_filename
     if args.verify_only:
         if not solution_filename.exists():
-            logger.error(f'Required solution file {solution_filename} is required for only verification')
+            logger.error(f'Required solution file {solution_filename} is required for verification')
             exit(-1)
         else:
             logger.info(f'File copy {solution_filename} to {best_model_filename}')
