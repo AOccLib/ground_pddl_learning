@@ -1015,7 +1015,7 @@ def get_transitions(tasks: List, logger) -> List[Transitions]:
 
     return list_transitions
 
-def sample_transitions(tasks: List, max_k: float, canonical_func: Callable, logger) -> List[Transitions]:
+def sample_transitions(tasks: List, max_k: int, canonical_func: Callable, logger) -> List[Transitions]:
     # similar to get_transitions() but keep record of "canonical transitions" seen,
     # and keep up to k transitions for each canonical transition. Successors states
     # are randomly shuffled before exploring them.
@@ -1272,7 +1272,7 @@ if __name__ == '__main__':
     # sampled edges
     default_seed = 0
     sampled = parser.add_argument_group('sampling of edges (for tasks with multiple images):')
-    sampled.add_argument('--max_k', type=float, default=0, help=f'maximum number of instances for each canonical edge (default 0 means disabled)')
+    sampled.add_argument('--max_k', type=int, default=0, help=f'maximum number of instances for each canonical edge (default 0 means disabled)')
     sampled.add_argument('--target_ratio', type=float, default=0, help=f'define target ratio for sampling edges (default 0 means disabled)')
     sampled.add_argument('--seed', type=int, default=default_seed, help=f'seed for random generator (default={default_seed})')
 
@@ -1298,7 +1298,7 @@ if __name__ == '__main__':
     output_folder = f'{domain_name}_complexity={args.max_complexity}'
     if args.role_restrictions: output_folder += '_r_restr'
     if args.cardinality_restrictions: output_folder += '_c_restr'
-    if args.max_k > 0: output_folder += f'maxk={args.max_k}'
+    if args.max_k > 0: output_folder += f'_maxk={args.max_k}'
     if args.target_ratio > 0: output_folder += f'_ratio={args.target_ratio}'
     if args.seed != 0: output_folder += f'_s{args.seed}'
     output_path = (domain_path if args.output_path is None else Path(args.output_path)) / output_folder
