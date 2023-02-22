@@ -48,9 +48,10 @@ def get_logger(name: str, log_file: Path, level = logging.INFO):
 
 # O2D states
 class O2DState(object):
-    def __init__(self, instance, objects, denotations):
+    def __init__(self, instance, objects, o2d_objects, denotations):
         self.instance = instance
         self.objects = objects
+        self.o2d_objects = o2d_objects
         self.denotations = denotations
 
 # Denotations
@@ -209,7 +210,7 @@ class VerumConcept(Concept):
     def __str__(self):
         return 'verum'
     def denotation(self, state: O2DState):
-        return state.objects
+        return state.o2d_objects
 
 # Primitive concepts are O2D concepts
 class O2DConcept(Concept):
@@ -242,7 +243,7 @@ class NegatedConcept(Concept):
         return f'not_lp_{self.concept}_rp'
     def denotation(self, state: O2DState):
         subset = self.concept.denotation(state)
-        return set([ obj for obj in state.objects if obj not in subset ])
+        return set([ obj for obj in state.o2d_objects if obj not in subset ])
 
 class ConjunctiveConcept(Concept):
     def __init__(self, concept1: Concept, concept2: Concept):
@@ -901,6 +902,18 @@ def get_dict_from_state(state):
         ext_state[pred].add(tuple(args))
     return ext_state
 
+def get_o2d_objects(ext_state: Dict, symb2spatial: Dict):
+    if 'o2d-object' in symb2spatial:
+        o2d_object = set()
+        for pred in symb2spatial['o2d-object']:
+            (name, arity) = pred.split('/')
+            assert int(arity) == 1, f'O2D objects can only be defined with unary predicates: {pred}'
+            o2d_object.update(ext_state.get(name, []))
+        o2d_object.update(ext_state.get('constant', []))
+        return o2d_object
+    else:
+        return None
+
 def construct_map_function(symb2spatial: Dict, objects) -> Callable:
     # construct dict for objects
     object_dict = dict(object=set())
@@ -911,16 +924,16 @@ def construct_map_function(symb2spatial: Dict, objects) -> Callable:
         object_dict[objtype].add((obj,))
     logger.info(object_dict)
 
+    # add constants to object dict
+    object_dict['constant'] = set()
+    if 'constants' in symb2spatial:
+        for obj in symb2spatial['constants']:
+            object_dict['constant'].add((obj,))
+            object_dict['object'].add((obj,))
+
     def map_func(state):
         ext_state = get_dict_from_state(state)
         ext_state.update(object_dict)
-
-        # add constants (if any)
-        ext_state['constant'] = set()
-        if 'constants' in symb2spatial:
-            for obj in symb2spatial['constants']:
-                ext_state['constant'].add((obj,))
-                ext_state['object'].add((obj,))
 
         # add facts (if any)
         if 'facts' in symb2spatial:
@@ -931,15 +944,20 @@ def construct_map_function(symb2spatial: Dict, objects) -> Callable:
         # apply rules in symb2spatial profile to obtain visualization
         apply_rules(ext_state, symb2spatial['rules'])
 
+        # get o2d objects for state
+        o2d_objects = get_o2d_objects(ext_state, symb2spatial)
+        if o2d_objects is not None: ext_state['o2d-object'] = o2d_objects
+
         return ext_state
     return map_func
 
 def get_o2d_state_from_ext_state(i: int, ext_state: Dict, primitive_concepts_and_roles: List[str]) -> O2DState:
     objects = set([ obj[0] for obj in ext_state['object'] ])
+    o2d_objects = set([ obj[0] for obj in ext_state.get('o2d-object', ext_state['object']) ])
     denotations = dict()
     for name in primitive_concepts_and_roles:
-        denotations[name] = ext_state[name] if name in ext_state else set()
-    return O2DState(i, objects, denotations)
+        denotations[name] = ext_state.get(name, set())
+    return O2DState(i, objects, o2d_objects, denotations)
 
 def get_o2d_states(problems, list_transitions: List[Transitions], symb2spatial: Dict, o2d_concepts_and_roles: Dict):
     assert len(problems) == len(list_transitions)
@@ -1233,7 +1251,7 @@ def write_graph_files(predicates: List, states: List, states_dict: List[dict], l
         write_graph_file(predicates, (beg, end), i, slice_states, states_dict[i], list_transitions[i], slice_o2d_states, graph_filename, symb2spatial)
 
 def get_o2d_concepts_and_roles(symb2spatial: Dict) -> Dict:
-    assert 'o2d' in symb2spatial, "TEMPORAL CHECK (REMOVE AFTERWARDS): expecting 'o2d' record in registry" #CHECK
+    assert 'o2d' in symb2spatial, f"Registry entry must contain an 'o2d' record: entry={symb2spatial}"
     o2d_concepts_and_roles = dict(raw=[], concepts=[], roles=[])
     o2d_concepts_and_roles['raw'] = sorted(symb2spatial['o2d'])
     o2d_concepts_and_roles['concepts'] = [ name[:-2] for name in o2d_concepts_and_roles['raw'] if name[-2:] == '/1' ]
