@@ -16,6 +16,7 @@
       "canonical"  : ["on/2", "ontable/1"],
       "constants"  : ["rectangle", "t"],
       "o2d"        : ["table/1", "block/1", "below/2", "smaller/2", "shape/2", "left/2"],
+      "o2d-object" : ["block/1"],
       "facts"      : [ ["table", ["t"]] ],
       "rules"      : { "block/1"      : [ ["block(X)",           ["at(S,H,X)"]],
                                           ["block(X)",           ["holding(X)"]] ],
@@ -24,7 +25,8 @@
                        "left/2"       : [ ["left(X,Y)",          ["at(S1,H,X)", "at(S2,H,Y)", "leftof(S2,S1)"]] ],
                        "smaller/2"    : [ ["smaller(X,Y)",       ["block(X)", "table(Y)"]],
                                           ["smaller(X,Z)",       ["smaller(X,Y)", "smaller(Y,Z)"]] ],
-                       "shape/2"      : [ ["shape(X,rectangle)", ["object(X)"]] ]
+                       "shape/2"      : [ ["shape(X,rectangle)", ["block(X)"]],
+                                          ["shape(X,rectangle)", ["table(X)"]] ]
                      } },
   "blocks4ops" :
     { "desc"       : "Blocks with gripper and 4 operators",
@@ -48,6 +50,7 @@
       "canonical"  : ["on/2", "ontable/1", "holding/1"],
       "constants"  : ["rectangle", "r", "t"],
       "o2d"        : ["robot/1", "table/1", "block/1", "overlap/2", "below/2", "smaller/2", "shape/2", "left/2"],
+      "o2d-object" : [ ["block/1"],
       "facts"      : [ ["robot", ["r"]], ["table", ["t"]] ],
       "rules"      : { "block/1"      : [ ["block(X)",           ["at(S,H,X)"]],
                                           ["block(X)",           ["holding(X)"]] ],
@@ -59,7 +62,8 @@
                        "smaller/2"    : [ ["smaller(X,Y)",       ["block(X)", "table(Y)"]],
                                           ["smaller(X,Y)",       ["block(X)", "robot(Y)"]],
                                           ["smaller(X,Z)",       ["smaller(X,Y)", "smaller(Y,Z)"]] ],
-                       "shape/2"      : [ ["shape(X,rectangle)", ["object(X)"]] ]
+                       "shape/2"      : [ ["shape(X,rectangle)", ["block(X)"]],
+                                          ["shape(X,rectangle)", ["table(X)"]] ]
                      } },
   "hanoi1op" :
     { "desc"       : "Towers of hanoi with 1 operator",
