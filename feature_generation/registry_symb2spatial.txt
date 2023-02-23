@@ -50,7 +50,7 @@
       "canonical"  : ["on/2", "ontable/1", "holding/1"],
       "constants"  : ["rectangle", "r", "t"],
       "o2d"        : ["robot/1", "table/1", "block/1", "overlap/2", "below/2", "smaller/2", "shape/2", "left/2"],
-      "o2d-object" : [ ["block/1"],
+      "o2d-object" : ["block/1"],
       "facts"      : [ ["robot", ["r"]], ["table", ["t"]] ],
       "rules"      : { "block/1"      : [ ["block(X)",           ["at(S,H,X)"]],
                                           ["block(X)",           ["holding(X)"]] ],
