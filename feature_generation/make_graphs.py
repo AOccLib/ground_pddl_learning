@@ -1096,7 +1096,7 @@ def sample_transitions_with_ratio(list_transitions: List[Transitions], tasks: Li
         shuffled_transitions = list(transitions)
         random.shuffle(shuffled_transitions)
 
-        # first pass, instantiate each canonical transition in some direction
+        # first pass: instantiate each canonical transition in some direction
         sampled_transitions = set()
         for transition in shuffled_transitions:
             c_src = canonical_func(transition[0])
@@ -1112,18 +1112,17 @@ def sample_transitions_with_ratio(list_transitions: List[Transitions], tasks: Li
         change = True
         ratio = 1.0
 
-        # do more passes until ratio >= target_ratio
-        while change and ratio < target_ratio:
-            change = False
-            random.shuffle(shuffled_transitions)
-            for transition in shuffled_transitions:
-                c_src = canonical_func(transition[0])
-                c_dst = canonical_func(transition[2])
-                if transition not in sampled_transitions:
-                    sampled_transitions.add(transition)
-                    ratio = len(sampled_transitions) / num_canonical_transitions
-                    if ratio >= target_ratio: break
-                    change = True
+        # second pass: add more transitions until ratio >= target_ratio
+        random.shuffle(shuffled_transitions)
+        for transition in shuffled_transitions:
+            c_src = canonical_func(transition[0])
+            c_dst = canonical_func(transition[2])
+            if transition not in sampled_transitions:
+                sampled_transitions.add(transition)
+                ratio = len(sampled_transitions) / num_canonical_transitions
+                if ratio >= target_ratio: break
+
+        # add sampled transitions to result
         sampled_transitions = tuple(sorted(sampled_transitions))
         list_sampled_transitions.append(sampled_transitions)
         logger.info(f'task {task.name} (in {task.fname}): #canonical={{states={len(store_c_states)}, transitions={num_canonical_transitions}}}, #sampled={{states={len(store_states)}, transitions={len(sampled_transitions)}, ratio={ratio}}}')
