@@ -275,7 +275,7 @@ Thus, for example, one can use rules to compute the transitive closure of a bina
 predicate like for example the two rules for ```smaller/2```, the first defining the
 primitive atoms, and the second the *inductive* rule.
 
-### Other entries in registry
+### Other records in registry
 
 A registry entry may use two other types of records. First, the record ```o2d-object```
 that permits filtering the set of objects that end up entering the graph file. This
@@ -292,4 +292,84 @@ PDDL states as being *equivalent*. This is done by the ```canonical``` record th
 a set of predicates so that two images are identified as the same if both agree on the
 denotation of the predicates in the list.
 
-## 
+## Sampling of edges
+
+The python program allows the sampling of state transitions for PDDL instances; two methods
+of sampling are implemented. Sampling is important in problems that have multiple images
+per underlying state, like ```blocks3ops-slots```. For such problems, the number of all state
+transitions may be too large and we must sample a subset of such transitions, but with the
+guarantee that every transition between underlying states is *witnessed* in the set of
+sampled edges.
+
+The first method is perhaps the simplest. It is triggered with the ```--target_ratio```
+option that accepts a real number bigger or equal to 1. Once all state transitions in a
+PDDL instance are collected, a first pass over a random permutation of transitions is done
+in which a unique transition among two underlying states is sampled. After this pass, 
+another pass is done over a new random permutation in which transitions are sampled
+until the number of sampled transitions divided by the number of transitions included
+in the first pass is bigger than or equal to the target ratio.
+
+The second method samples the edges as they are generated during the full state space
+(random) exploration that is performed from the initial state in order to discover all the reachable
+states and reachable state transitions. This method is enabled with the argument
+```--max_k``` that accepts an integer number bigger than or equal to 1. The max-k value
+specified the maximum number of edges between two underlying states that can be included
+in the set of sampled transitions, and that are collected during the random exploration.
+
+## Restrictions
+
+The DL grammar can be extended with the options ```--cardinality_restrictions``` and
+```--role_restrictions```, each one allowing additional functionality to the grammar.
+
+## All options
+
+A brief description of all the options accepted by ```make_graphs.py``` can be obtained 
+with  ```--help``:
+
+```
+usage: make_graphs.py [-h] [--cardinality_restrictions] [--role_restrictions]
+                      [--max_k MAX_K] [--target_ratio TARGET_RATIO]
+                      [--seed SEED] [--debug_level DEBUG_LEVEL]
+                      [--complexity_measure {sum,height}]
+                      [--output_path OUTPUT_PATH]
+                      [--symb2spatial SYMB2SPATIAL]
+                      path max_complexity
+
+Construct features and graphs from PDDL models.
+
+optional arguments:
+  -h, --help            show this help message and exit
+
+required arguments:
+  path                  path to folder containing 'domain.pddl' and .pddl
+                        problem files (path name used as key into symb2spatial
+                        registry)
+  max_complexity        max complexity for construction of concepts and rules
+                        (0=no limit)
+
+restrictions:
+  --cardinality_restrictions
+                        toggle generation of cardinality restrictions
+  --role_restrictions   toggle generation of role restrictions
+
+sampling of edges (for tasks with multiple images)::
+  --max_k MAX_K         maximum number of instances for each canonical edge
+                        (default 0 means disabled)
+  --target_ratio TARGET_RATIO
+                        define target ratio for sampling edges (default 0
+                        means disabled)
+  --seed SEED           seed for random generator (default=0)
+
+additional options:
+  --debug_level DEBUG_LEVEL
+                        set debug level (default=0)
+  --complexity_measure {sum,height}
+                        complexity measure (either sum or height,
+                        default='sum')
+  --output_path OUTPUT_PATH
+                        override default output_path
+  --symb2spatial SYMB2SPATIAL
+                        symb2spatial file
+                        (default='registry_symb2spatial.json')
+```
+
