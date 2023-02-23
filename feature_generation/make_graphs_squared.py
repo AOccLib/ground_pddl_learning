@@ -1139,7 +1139,7 @@ if __name__ == '__main__':
     # additional options
     default_debug_level = 0
     default_complexity_measure = 'sum'
-    default_symb2spatial = exec_path / 'registry_symb2spatial.txt'
+    default_symb2spatial = exec_path / 'registry_symb2spatial.json'
     other = parser.add_argument_group('additional options')
     other.add_argument('--debug_level', type=int, default=default_debug_level, help=f'set debug level (default={default_debug_level})')
     other.add_argument('--complexity_measure', type=str, choices=['sum', 'height'], default=default_complexity_measure, help=f"complexity measure (either sum or height, default='{default_complexity_measure}')")
