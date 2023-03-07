@@ -299,7 +299,7 @@ def solve(solver: Path,
 
                 if inst not in data['sink_nodes']:
                     sinks = pg.read_sink_nodes(distillate, logger)
-                    logger.info(f'Sinks: inst={inst}, all={sinks}')
+                    #logger.info(f'Sinks: inst={inst}, all={sinks}')
                     data['sink_nodes'][inst] = sinks
                     assert inst not in data['fnames']
                     data['fnames'][inst] = fname
