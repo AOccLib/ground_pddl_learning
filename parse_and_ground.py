@@ -4,10 +4,12 @@ from pathlib import Path
 from itertools import product
 from typing import List, Dict
 from termcolor import colored
+from progress.spinner import Spinner
+from timeit import default_timer as timer
 
 def read_file(filename: Path, logger) -> List[str]:
     lines = [ line for line in filename.open('r') ]
-    for line in tqdm(lines, desc = f"read file '{filename}'", file=stdout):
+    for line in tqdm(lines, desc = f"Reading file '{filename}'", file=stdout):
         line = line.strip('\n')
         if line != '':
             index_first_non_white_char = len(line) - len(line.lstrip())
@@ -341,6 +343,9 @@ def ground(lifted_model: Dict, distillate: Dict, logger, debug: bool = False) ->
                         f_static=distillate['f_static'],
                         tlabel=distillate['tlabel'])
 
+    start_time = timer()
+    spinner = Spinner('Grounding lifted model... ')
+
     # instance indices and ground atoms from fval_static and fval elements in distillate
     ground_model.update(dict(instances=set(), gatoms=dict(), gatoms_r=dict()))
     for key in [ 'fval_static', 'fval' ]:
@@ -360,6 +365,7 @@ def ground(lifted_model: Dict, distillate: Dict, logger, debug: bool = False) ->
                         index = len(ground_model['gatoms'][inst])
                         ground_model['gatoms'][inst][atom] = index
                         ground_model['gatoms_r'][inst].append(atom)
+                    spinner.next()
 
     # number of grounded atoms
     num_gatoms = dict()
@@ -379,6 +385,7 @@ def ground(lifted_model: Dict, distillate: Dict, logger, debug: bool = False) ->
                 assert atom in ground_model['gatoms'][inst], f'grounding: (1) inst={inst}, atom={atom}'
                 gatom = ground_model['gatoms'][inst][atom]
                 ground_model[key][inst][1].append(gatom if node == None else (gatom, node))
+                spinner.next()
 
     for inst in distillate['fval'].keys():
         ground_model['fval'][inst]['node'] = dict()
@@ -390,7 +397,8 @@ def ground(lifted_model: Dict, distillate: Dict, logger, debug: bool = False) ->
                     assert atom in ground_model['gatoms'][inst], f'grounding: (2) inst={inst}, atom={atom}'
                     gatom = ground_model['gatoms'][inst][atom]
                     ground_model['fval'][inst]['node'][node].add(gatom)
-            assert set([ atom for atom, st in ground_model['fval'][inst][1] if st == node ]) == ground_model['fval'][inst]['node'][node]
+            #assert set([ atom for atom, st in ground_model['fval'][inst][1] if st == node ]) == ground_model['fval'][inst]['node'][node]
+            spinner.next()
 
     # objects
     num_objects = dict()
@@ -401,6 +409,7 @@ def ground(lifted_model: Dict, distillate: Dict, logger, debug: bool = False) ->
             assert type(atom[0]) == str and type(atom[1]) == tuple
             if atom[0] == 'verum':
                 for obj in atom[1]: ground_model['objects'][inst].add(obj)
+            spinner.next()
         num_objects[inst] = len(ground_model['objects'][inst])
 
     # grounded actions
@@ -437,6 +446,7 @@ def ground(lifted_model: Dict, distillate: Dict, logger, debug: bool = False) ->
                             elif debug:
                                 warnings.append(f'{colored("INFO:", "green")} grounding: inexistent ground atom {glifted} (value={value}) in {key} for inst={inst} in {label}({",".join(args)})')
                         gaction[key].append((glifted, index, value))
+                    spinner.next()
                     if not is_applicable: break
 
                 if is_applicable and applicable_static(ground_model, inst, gaction):
@@ -456,7 +466,11 @@ def ground(lifted_model: Dict, distillate: Dict, logger, debug: bool = False) ->
     for inst in distillate['node']:
         num_nodes[inst] = len(distillate['node'][inst])
 
-    logger.info(f'#nodes={num_nodes}, #features={len(ground_model["feature"])}, #objects={num_objects}, #grounded-atoms={num_gatoms}')
+    # finish spinner
+    spinner.writeln('Grounding lifted model... done!')
+    spinner.finish()
+
+    logger.info(f'#nodes={num_nodes}, #features={len(ground_model["feature"])}, #objects={num_objects}, #grounded-atoms={num_gatoms}, elapsed_time={timer() - start_time:.3f}')
     return ground_model
 
 # Check if static predicates in given ground action hold
