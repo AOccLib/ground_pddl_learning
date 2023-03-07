@@ -2,6 +2,8 @@ from termcolor import colored
 from typing import List
 from itertools import product
 import parse_and_ground as pg
+from sys import stdout
+from tqdm import tqdm
 
 # Get node representation over selected atoms
 def get_node_rep(ground_model: dict, inst: int, node: int, selected_gatoms: set):
@@ -14,7 +16,7 @@ def calculate_equivalence_classes(ground_model: dict, inst: int, selected_gatoms
     eq_classes = [ None for _ in nodes ]
     map_eqclass = [ None for _ in nodes ]
     mapped_nodes = set()
-    for i in range(len(node_reprs)):
+    for i in tqdm(range(len(node_reprs)), desc='Calculating equivalence classes'):
         if i not in mapped_nodes:
             eq_classes[i] = set([i])
             map_eqclass[i] = i
@@ -31,6 +33,8 @@ def calculate_equivalence_classes(ground_model: dict, inst: int, selected_gatoms
 # Returns either (True, None) or (False, (S1,S2)) where S1 and S2 are two nodes that are equal modulo selected atoms
 def verify_nodes_are_different(ground_model : dict, inst : int, selected_gatoms : set) -> List:
     nodes = list(ground_model['fval'][inst]['node'].keys())
+    n = len(nodes) * (len(nodes) - 1) // 2
+    progress_bar = tqdm(range(n), desc='Verifying that nodes are different')
     for i in range(len(nodes)):
         #inode = set([ gatom for gatom in ground_model['fval'][inst]['node'][nodes[i]] if gatom in selected_gatoms ])
         inode = get_node_rep(ground_model, inst, nodes[i], selected_gatoms)
@@ -38,7 +42,10 @@ def verify_nodes_are_different(ground_model : dict, inst : int, selected_gatoms 
             #jnode = set([ gatom for gatom in ground_model['fval'][inst]['node'][nodes[j]] if gatom in selected_gatoms ])
             jnode = get_node_rep(ground_model, inst, nodes[j], selected_gatoms)
             if inode == jnode:
+                progress_bar.update(n)
                 return False, (nodes[i], nodes[j])
+            progress_bar.update()
+            n -= 1
     return True, None
 
 # Verifies that all outgoing transitions from src_index match the outgoing transition in planning graph defined by lifted model
@@ -114,7 +121,7 @@ def verify_instance(ground_model : dict, inst : int, logger) -> (bool, List[int]
         f_nodes_r[tuple(sorted(list(filtered)))] = i
 
     unverified_nodes = []
-    for src_index in range(num_nodes):
+    for src_index in tqdm(range(num_nodes), desc=f'Verifying transitions', file=stdout):
         rv, reason = verify_node(ground_model, inst, src_index, f_nodes, f_nodes_r, logger)
         if not rv:
             unverified_nodes.append(src_index)
@@ -248,7 +255,7 @@ def verify_instance_using_equivalence_classes(ground_model: dict, inst: int, alr
     logger.debug(colored(f'DEBUG: reprs={eq_classes["reprs"]}, nodes={nodes}, f_nodes={f_nodes}', 'yellow'))
 
     unverified_nodes = set()
-    for src_index in eq_classes['reprs']:
+    for src_index in tqdm(eq_classes['reprs'], desc='  Verifying equivalance classes'):
         #logger.debug(colored(f'DEBUG: src_index={src_index}, nodes={nodes}', 'red', attrs=[]))
         rv, reason = verify_node_using_equivalence_classes(ground_model, inst, src_index, eq_classes, projected_tlabels, f_nodes, f_nodes_r, logger)
         if not rv:
