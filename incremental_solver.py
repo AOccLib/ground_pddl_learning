@@ -360,29 +360,29 @@ def _parse_arguments():
     default_max_action_arity = 3
     default_max_num_predicates = 12
     hyper = parser.add_argument_group('hyperparameters for solver')
-    hyper.add_argument('--max-action-arity', dest='max_action_arity', type=int, default=default_max_action_arity, help=f'set maximum action arity for schemas (default={default_max_action_arity})')
-    hyper.add_argument('--max-num-predicates', dest='max_num_predicates', type=int, default=default_max_num_predicates, help=f'set maximum number selected predicates (default={default_max_num_predicates})')
+    hyper.add_argument('--max_action_arity', type=int, default=default_max_action_arity, help=f'set maximum action arity for schemas (default={default_max_action_arity})')
+    hyper.add_argument('--max_num_predicates', type=int, default=default_max_num_predicates, help=f'set maximum number selected predicates (default={default_max_num_predicates})')
 
     # options for solver
     default_max_nodes_per_iteration = 10
     default_sat_prepro = 0
     solver = parser.add_argument_group('additional options for solver')
-    solver.add_argument('--ignore-constants', dest='ignore_constants', action='store_true', help='ignore constant semantics for objects of type constant')
-    solver.add_argument('--include', nargs=1, dest='include', type=Path, default=[], help=f'include additional .lp file')
-    solver.add_argument('--max-nodes-per-iteration', dest='max_nodes_per_iteration', type=int, default=default_max_nodes_per_iteration, help=f'max number of nodes added per iteration (0=all, default={default_max_nodes_per_iteration}')
-    solver.add_argument('--sat-prepro', dest='sat_prepro', type=int, default=default_sat_prepro, choices=[0, 1, 2], help=f'set --sat-prepro flag for Clingo solver (default={default_sat_prepro})')
+    solver.add_argument('--ignore_constants', action='store_true', help='ignore constant semantics for objects of type constant')
+    solver.add_argument('--include', nargs=1, type=Path, default=[], help=f'include additional .lp file')
+    solver.add_argument('--max_nodes_per_iteration', type=int, default=default_max_nodes_per_iteration, help=f'max number of nodes added per iteration (0=all, default={default_max_nodes_per_iteration}')
+    solver.add_argument('--sat_prepro', type=int, default=default_sat_prepro, choices=[0, 1, 2], help=f'set --sat-prepro flag for Clingo solver (default={default_sat_prepro})')
 
     # options for driver program
     default_aws_instance = False
     default_debug_level = 0
     default_max_time = 57600
     driver = parser.add_argument_group('optional arguments for driver program')
-    driver.add_argument('--aws-instance', dest='aws_instance', type=lambda x:bool(strtobool(x)), default=default_aws_instance, help=f'describe AWS instance (boolean, default={default_aws_instance})')
+    driver.add_argument('--aws_instance', type=lambda x:bool(strtobool(x)), default=default_aws_instance, help=f'describe AWS instance (boolean, default={default_aws_instance})')
     driver.add_argument('--continue', dest='continue_solve', action='store_true', help='continue an interrupted learning process')
-    driver.add_argument('--debug-level', dest='debug_level', type=int, default=default_debug_level, help=f'set debug level (default={default_debug_level})')
-    driver.add_argument('--max-time', dest='max_time', type=int, default=default_max_time, help=f'max-time for Clingo solver (0=no limit, default={default_max_time})')
-    driver.add_argument('--results', dest='results', action='append', help=f"folder to store results (default=graphs's folder)")
-    driver.add_argument('--verify-only', dest='verify_only', action='store_true', help='verify best model found over test set')
+    driver.add_argument('--debug_level', type=int, default=default_debug_level, help=f'set debug level (default={default_debug_level})')
+    driver.add_argument('--max_time', type=int, default=default_max_time, help=f'max-time for Clingo solver (0=no limit, default={default_max_time})')
+    driver.add_argument('--results', action='append', help=f"folder to store results (default=graphs's folder)")
+    driver.add_argument('--verify_only', action='store_true', help='verify best model found over test set')
 
     # randomization
     default_seed = 0
