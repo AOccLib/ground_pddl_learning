@@ -1028,8 +1028,14 @@ def get_transitions(tasks: List, logger) -> List[Transitions]:
                     logger.debug(f'{task.name}: add transition={transition}')
         list_transitions.append(tuple(sorted(explored_transitions)))
 
+        # collect discovered states
+        discovered_states = set()
+        for (src, operator, dst) in explored_transitions:
+            discovered_states.add(src)
+            discovered_states.add(dst)
+
         elapsed_time = timer() - start_time
-        logger.info(f'{task.name}: {len(explored_transitions)} edge(s) in {elapsed_time:.3f} second(s)')
+        logger.info(f'{task.name}: {len(discovered_states)} state(s) and {len(explored_transitions)} edge(s) in {elapsed_time:.3f} second(s)')
 
     return list_transitions
 
@@ -1113,14 +1119,15 @@ def sample_transitions_with_ratio(list_transitions: List[Transitions], tasks: Li
         ratio = 1.0
 
         # second pass: add more transitions until ratio >= target_ratio
-        random.shuffle(shuffled_transitions)
-        for transition in shuffled_transitions:
-            c_src = canonical_func(transition[0])
-            c_dst = canonical_func(transition[2])
-            if transition not in sampled_transitions:
-                sampled_transitions.add(transition)
-                ratio = len(sampled_transitions) / num_canonical_transitions
-                if ratio >= target_ratio: break
+        if ratio < target_ratio:
+            random.shuffle(shuffled_transitions)
+            for transition in shuffled_transitions:
+                if transition not in sampled_transitions:
+                    sampled_transitions.add(transition)
+                    store_states.add(transition[0])
+                    store_states.add(transition[2])
+                    ratio = len(sampled_transitions) / num_canonical_transitions
+                    if ratio >= target_ratio: break
 
         # add sampled transitions to result
         sampled_transitions = tuple(sorted(sampled_transitions))
