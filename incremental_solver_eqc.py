@@ -310,7 +310,7 @@ def _parse_arguments():
     # required arguments
     required = parser.add_argument_group('required arguments')
     required.add_argument('solver', type=str, help='solver (.lp file)')
-    required.add_argument('domain', type=str, help="path to domain's folder (it can be a .zip file)")
+    required.add_argument('domain', type=str, help="path to folder containing graphs (it can be path to .zip file)")
 
     # hyperparameters
     default_max_action_arity = 3
