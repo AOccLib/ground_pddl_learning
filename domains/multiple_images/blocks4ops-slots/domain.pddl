@@ -1,10 +1,8 @@
 (define (domain blocks4ops-slots)
   (:requirements :strips)
-  (:constants h0) ; minimum height
   (:predicates
     (block ?x)
     (slot ?s)
-    (height ?h)
     (on ?x ?y)
     (ontable ?x)
     (clear ?x)
@@ -13,37 +11,33 @@
     (neq ?x ?y)
     ; new predicates
     (freetable ?s)  ; there is no block on the table at slot s
-    (at ?s ?h ?x)   ; block x is at slot s, height h
-    (succ_h ?n ?m)  ; height n is successor of height m
+    (at ?s ?x)      ; block x is at slot s
     (leftof ?n ?m)  ; slot n is to the left of slot m
   )
 
   (:action pickup
-    :parameters (?x ?sx)
-    :precondition (and (block ?x) (slot ?sx) (ontable ?x) (clear ?x) (handempty) (at ?sx h0 ?x))
+    :parameters (?x ?s)
+    :precondition (and (block ?x) (slot ?s) (ontable ?x) (clear ?x) (handempty) (at ?s ?x))
     :effect (and (not (clear ?x)) (not (handempty)) (not (ontable ?x)) (holding ?x)
-                 (not (at ?sx h0 ?x)) (freetable ?sx))
+                 (not (at ?s ?x)) (freetable ?s))
   )
 
   (:action putdown
-    :parameters (?x ?sx)
-    :precondition (and (block ?x) (slot ?sx) (holding ?x) (freetable ?sx))
+    :parameters (?x ?s)
+    :precondition (and (block ?x) (slot ?s) (holding ?x) (freetable ?s))
     :effect (and (not (holding ?x)) (clear ?x) (ontable ?x) (handempty)
-                 (at ?sx h0 ?x) (not (freetable ?sx)))
+                 (at ?s ?x) (not (freetable ?s)))
   )
 
   (:action stack
-    :parameters (?x ?y ?sy ?hy ?h)
-    :precondition (and (block ?x) (block ?y) (slot ?sy) (height ?hy) (height ?h) (holding ?x) (clear ?y) (at ?sy ?hy ?y) (succ_h ?h ?hy))
-    :effect (and (not (holding ?x)) (not (clear ?y)) (clear ?x) (handempty) (on ?x ?y)
-                 (at ?sy ?h ?x))
+    :parameters (?x ?y)
+    :precondition (and (block ?x) (block ?y) (holding ?x) (clear ?y))
+    :effect (and (not (holding ?x)) (not (clear ?y)) (clear ?x) (handempty) (on ?x ?y))
   )
 
   (:action unstack
-    :parameters (?x ?y ?sx ?hx)
-    :precondition (and (block ?x) (block ?y) (slot ?sx) (height ?hx) (clear ?x) (on ?x ?y) (handempty) (at ?sx ?hx ?x))
-    :effect (and (not (clear ?x)) (not (on ?x ?y)) (not (handempty))
-                 (holding ?x) (clear ?y)
-                 (not (at ?sx ?hx ?x)))
+    :parameters (?x ?y)
+    :precondition (and (block ?x) (block ?y) (clear ?x) (on ?x ?y) (handempty))
+    :effect (and (not (clear ?x)) (not (on ?x ?y)) (not (handempty)) (holding ?x) (clear ?y))
   )
 )
