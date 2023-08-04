@@ -10,19 +10,19 @@
                (left ?l ?r)
                (neq ?l ?r)
                ; new predicates
-               (freeslot ?r ?s)      ; there is no object at slot s of room r
-               (at_slot ?b ?r ?s)     ; ball b is at room r, slot s
-               (at_robby_slot ?r ?s)  ; robot is at room r, slot s
-               (slot ?s ?r)         ; slot s is in room r
+               (freeslot ?room ?slot)       ; there is no object at slot s of room r
+               (at_slot ?ball ?room ?slot)  ; ball b is at room r, slot s
+               (at_robby_slot ?room ?slot)  ; robot is at room r, slot s
   )
 
   (:action move
     :parameters (?from ?to ?fromslot ?toslot)
-    :precondition (and (at_robby ?from) (neq ?from ?to)
-                       (slot ?toslot ?to) (freeslot ?to ?toslot) (at_robby_slot ?from ?fromslot))
+    :precondition (and (neq ?from ?to)
+                       (at_robby ?from) (at_robby_slot ?from ?fromslot)
+                       (freeslot ?to ?toslot))
     :effect (and (at_robby ?to) (not (at_robby ?from))
-                 (not (at_robby_slot ?from ?fromslot)) (freeslot ?from ?fromslot)
-                 (at_robby_slot ?to ?toslot) (not (freeslot ?to ?toslot)))
+                 (at_robby_slot ?to ?toslot) (not (at_robby_slot ?from ?fromslot))
+                 (freeslot ?from ?fromslot) (not (freeslot ?to ?toslot)))
   )
 
   (:action pick
@@ -38,8 +38,7 @@
 
   (:action drop
     :parameters (?obj ?room ?gripper ?slot)
-    :precondition (and (carry ?obj ?gripper) (at_robby ?room)
-                       (freeslot ?room ?slot) (slot ?slot ?room))
+    :precondition (and (carry ?obj ?gripper) (at_robby ?room) (freeslot ?room ?slot))
     :effect (and (at ?obj ?room) (free ?gripper) (not (carry ?obj ?gripper))
                  (not (freeslot ?room ?slot)) (at_slot ?obj ?room ?slot))
   )
