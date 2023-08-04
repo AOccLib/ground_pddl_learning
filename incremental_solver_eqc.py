@@ -325,7 +325,7 @@ def _parse_arguments():
     solver = parser.add_argument_group('additional options for solver')
     solver.add_argument('--ignore_constants', action='store_true', help='ignore constant semantics for objects of type constant')
     solver.add_argument('--include', nargs=1, type=Path, default=[], help=f'include additional .lp file')
-    solver.add_argument('--max_nodes_per_iteration', type=int, default=default_max_nodes_per_iteration, help=f'max number of nodes added per iteration (0=all, default={default_max_nodes_per_iteration}')
+    solver.add_argument('--max_nodes_per_iteration', type=int, default=default_max_nodes_per_iteration, help=f'max number of nodes added per iteration (0=all, default={default_max_nodes_per_iteration})')
     solver.add_argument('--sat_prepro', type=int, default=default_sat_prepro, choices=[0, 1, 2], help=f'set --sat-prepro flag for Clingo solver (default={default_sat_prepro})')
 
     # options for driver program
